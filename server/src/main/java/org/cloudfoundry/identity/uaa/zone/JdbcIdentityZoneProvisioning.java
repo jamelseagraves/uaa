@@ -88,13 +88,15 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
     @Override
     public IdentityZone create(final IdentityZone identityZone) {
 
-    	final String id = UUID.randomUUID().toString();
+    	if (identityZone.getId() == null || identityZone.getId().trim().isEmpty()) {
+    		identityZone.setId(UUID.randomUUID().toString());
+    	}
     	
         try {
             jdbcTemplate.update(CREATE_IDENTITY_ZONE_SQL, new PreparedStatementSetter() {
                 @Override
                 public void setValues(PreparedStatement ps) throws SQLException {
-                    ps.setString(1, id);
+                    ps.setString(1, identityZone.getId().trim());
                     ps.setInt(2, identityZone.getVersion());
                     ps.setTimestamp(3, new Timestamp(new Date().getTime()));
                     ps.setTimestamp(4, new Timestamp(new Date().getTime()));
@@ -112,7 +114,7 @@ public class JdbcIdentityZoneProvisioning implements IdentityZoneProvisioning, S
             throw new ZoneAlreadyExistsException(e.getMostSpecificCause().getMessage(), e);
         }
 
-        return retrieve(id);
+        return retrieve(identityZone.getId());
     }
 
     @Override
