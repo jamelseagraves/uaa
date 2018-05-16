@@ -48,10 +48,10 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
         String hostname = request.getServerName();
         String subdomain = getSubdomain(hostname);
         try {
-	        if (subdomain != null) {
-	            identityZone = dao.retrieveBySubdomain(subdomain);
-	        } else if (!StringUtils.isEmpty(identityZoneIdFromHeader)) {
+        	if (!StringUtils.isEmpty(identityZoneIdFromHeader)) {
 	        	identityZone = dao.retrieve(identityZoneIdFromHeader);
+	        } else if (subdomain != null) {
+	            identityZone = dao.retrieveBySubdomain(subdomain);
 	        }
         } catch (EmptyResultDataAccessException ex) {
             logger.debug("Cannot find identity zone for id " + identityZoneIdFromHeader + " or subdomain" + subdomain);
