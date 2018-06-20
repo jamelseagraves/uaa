@@ -73,6 +73,23 @@ allprojects {
         }
         maven { url 'http://repository.mulesoft.org/releases/'}
     }
+    task sourceJar(type: Jar) {
+        from sourceSets.main.allJava
+        classifier "sources"
+    }
+    apply plugin: 'maven-publish'
+
+    publishing {
+        repositories {
+            maven {
+                url "https://oss.sonatype.org/content/repositories/releases/"
+                credentials {
+                    username "$nexusUsername"
+                    password "$nexusPassword"
+                }
+            }
+        }
+    }
 }
 
 apply plugin: 'com.bmuschko.cargo'
@@ -87,18 +104,21 @@ flyway {
             user = 'root'
             password = 'changeme'
             schemas = ['uaa']
+            locations = ['filesystem:server/src/main/resources/org/cloudfoundry/identity/uaa/db/mysql']
             break
         case 'postgresql':
             driver = 'org.postgresql.Driver'
             url = 'jdbc:postgresql:uaa'
             user = 'root'
             password = 'changeme'
+            locations = ['filesystem:server/src/main/resources/org/cloudfoundry/identity/uaa/db/postgresql']
             break
         case 'sqlserver':
             driver = 'com.microsoft.sqlserver.jdbc.SQLServerDriver'
             url = 'jdbc:sqlserver://localhost:1433;database=uaa;'
             user = 'root'
             password = 'changemeCHANGEME1234!'
+            locations = ['filesystem:server/src/main/resources/org/cloudfoundry/identity/uaa/db/sqlserver']
             break
     }
 }
@@ -143,8 +163,10 @@ task manifests(dependsOn: assemble, type: Copy) {
     into 'build/sample-manifests'
 }
 
+
 subprojects {
     apply plugin: 'java'
+
     [compileJava, compileTestJava]*.options*.compilerArgs = ['-Xlint:none', '-nowarn']
     sourceCompatibility = 1.8
     targetCompatibility = 1.8
@@ -248,6 +270,20 @@ subprojects {
 }
 
 
+
+publishing {
+    publications {
+        uaa_parent(MavenPublication) {
+            groupId 'org.cloudfoundry.identity'
+            version uaaVersion
+            artifactId 'cloudfoundry-identity-parent'
+
+            from components.java
+            artifact sourceJar
+        }
+    }
+}
+
 def integrationTestCoverageExecutionData = "${buildDir}/integrationTestCoverageReport.exec"
 
 cargo {
@@ -299,10 +335,8 @@ project.gradle.taskGraph.whenReady { TaskExecutionGraph graph ->
         }
 
         local {
-//      jvmArgs = jvmArgs + " -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005"
 
             systemProperties {
-                //property 'uaa.allowUnverifiedUsers', 'false'
                 property 'smtp.host', 'localhost'
                 property 'smtp.port', 2525
             }
@@ -373,6 +407,19 @@ task mockAssertion(type: JavaExec) {
     args = System.getProperty("file", null) == null ? [] : [System.getProperty("file")]
     classpath = files(subprojects.sourceSets.test.runtimeClasspath)
 }
+
+task encrypt(type: JavaExec) {
+    main = 'org.cloudfoundry.identity.uaa.Encryptor'
+    args = System.getProperty("encryptArgs", null) == null ? [] : System.getProperty("encryptArgs").split(",").toList()
+    classpath = files(subprojects.find {it.name.contains('server') }.sourceSets.test.runtimeClasspath)
+}
+
+task decrypt(type: JavaExec) {
+    main = 'org.cloudfoundry.identity.uaa.Decryptor'
+    args = System.getProperty("decryptArgs", null) == null ? [] : System.getProperty("decryptArgs").split(",").toList()
+    classpath = files(subprojects.find {it.name.contains('server') }.sourceSets.test.runtimeClasspath)
+}
+
 
 
 coveralls {
@@ -481,8 +528,6 @@ class TimingsListener implements TaskExecutionListener, BuildListener, org.gradl
 
     @Override
     void settingsEvaluated(Settings settings) {}
-
-
 }
 
 gradle.addListener new TimingsListener()

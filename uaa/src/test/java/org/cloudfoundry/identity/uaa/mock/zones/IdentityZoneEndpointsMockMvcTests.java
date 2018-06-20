@@ -2,6 +2,7 @@ package org.cloudfoundry.identity.uaa.mock.zones;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.google.common.collect.Lists;
 import org.cloudfoundry.identity.uaa.approval.Approval;
 import org.cloudfoundry.identity.uaa.approval.ApprovalStore;
 import org.cloudfoundry.identity.uaa.audit.AuditEventType;
@@ -36,6 +37,7 @@ import org.cloudfoundry.identity.uaa.util.KeyWithCertTest;
 import org.cloudfoundry.identity.uaa.util.SetServerNameRequestPostProcessor;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation;
 import org.cloudfoundry.identity.uaa.zone.BrandingInformation.Banner;
+import org.cloudfoundry.identity.uaa.zone.Consent;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
@@ -79,6 +81,7 @@ import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenForm
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsInstanceOf.instanceOf;
 import static org.junit.Assert.assertEquals;
@@ -94,6 +97,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -499,6 +503,36 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     }
 
     @Test
+    public void testCreateZoneWithMfaConfigWithIdentityProviders() throws Exception {
+        String id = generator.generate();
+
+        IdentityZoneConfiguration zoneConfiguration = new IdentityZoneConfiguration();
+        zoneConfiguration.getMfaConfig().setIdentityProviders(Lists.newArrayList("uaa", "ldap"));
+
+        IdentityZone zone = createZone(id, HttpStatus.CREATED, identityClientToken, zoneConfiguration);
+
+        assertThat(zone.getConfig().getMfaConfig().getIdentityProviders(), hasItems("uaa", "ldap"));
+
+        IdentityZone checkZone = getIdentityZone(zone.getId(), HttpStatus.OK, identityClientToken);
+        assertThat(checkZone.getConfig().getMfaConfig().getIdentityProviders(), hasItems("uaa", "ldap"));
+    }
+
+    @Test
+    public void testCreateZoneWithMfaConfigWithoutIdentityProviders_returnsDefaultProviders() throws Exception {
+        String id = generator.generate();
+
+        IdentityZoneConfiguration zoneConfiguration = new IdentityZoneConfiguration();
+        zoneConfiguration.getMfaConfig().setIdentityProviders(null);
+
+        IdentityZone zone = createZone(id, HttpStatus.CREATED, identityClientToken, zoneConfiguration);
+
+        assertThat(zone.getConfig().getMfaConfig().getIdentityProviders(), hasItems("uaa", "ldap"));
+
+        IdentityZone checkZone = getIdentityZone(zone.getId(), HttpStatus.OK, identityClientToken);
+        assertThat(checkZone.getConfig().getMfaConfig().getIdentityProviders(), hasItems("uaa", "ldap"));
+    }
+
+    @Test
     public void updateZoneCreatesGroups() throws Exception {
         IdentityZone zone = createZoneReturn();
         List<String> zoneGroups = new LinkedList(zone.getConfig().getUserConfig().getDefaultGroups());
@@ -521,7 +555,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void createZoneWithNoNameFailsWithUnprocessableEntity() throws Exception {
         String id = generator.generate();
-        IdentityZone zone = this.getIdentityZone(id);
+        IdentityZone zone = this.createSimpleIdentityZone(id);
         zone.setName(null);
 
         getMockMvc().perform(
@@ -539,7 +573,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void createZoneWithNoSubdomainFailsWithUnprocessableEntity() throws Exception {
         String id = generator.generate();
-        IdentityZone zone = this.getIdentityZone(id);
+        IdentityZone zone = this.createSimpleIdentityZone(id);
         zone.setSubdomain(null);
 
         getMockMvc().perform(
@@ -582,7 +616,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateNonExistentReturns403() throws Exception {
         String id = new RandomValueStringGenerator().generate();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         //zone doesn't exist and we don't have the token scope
         updateZone(identityZone, HttpStatus.FORBIDDEN, lowPriviledgeToken);
 
@@ -598,7 +632,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateNonExistentReturns404() throws Exception {
         String id = generator.generate();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         updateZone(identityZone, HttpStatus.NOT_FOUND, identityClientToken);
 
         assertEquals(0, zoneModifiedEventListener.getEventCount());
@@ -838,7 +872,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneNoToken() throws Exception {
         String id = new RandomValueStringGenerator().generate();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         updateZone(identityZone, HttpStatus.UNAUTHORIZED, "");
 
         assertEquals(0, zoneModifiedEventListener.getEventCount());
@@ -847,7 +881,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneInsufficientScope() throws Exception {
         String id = new RandomValueStringGenerator().generate();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         updateZone(identityZone, HttpStatus.FORBIDDEN, lowPriviledgeToken);
 
         assertEquals(0, zoneModifiedEventListener.getEventCount());
@@ -868,7 +902,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneAndIdentityProvider() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         TokenPolicy tokenPolicy = new TokenPolicy(3600, 7200);
         Map<String, String> jwtKeys = new HashMap<>();
         jwtKeys.put("key_id_1", "secret_key_1");
@@ -960,7 +994,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithInvalidPrimarySigningKeyId() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         TokenPolicy tokenPolicy = identityZone.getConfig().getTokenPolicy();
         Map<String, String> jwtKeys = new HashMap<>();
         jwtKeys.put("key_id_1", "secret_key_1");
@@ -979,7 +1013,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithNoActiveKeyId() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         TokenPolicy tokenPolicy = identityZone.getConfig().getTokenPolicy();
         Map<String, String> jwtKeys = new HashMap<>();
         jwtKeys.put("key_id_1", "secret_key_1");
@@ -998,7 +1032,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithRefreshTokenConfig() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         TokenPolicy tokenPolicy = identityZone.getConfig().getTokenPolicy();
         tokenPolicy.setRefreshTokenFormat(OPAQUE.getStringValue().toUpperCase());
         tokenPolicy.setRefreshTokenUnique(true);
@@ -1021,7 +1055,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithCustomBrandingBanner() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String backgroundColor = "#112233";
         String link = "http://example.com";
@@ -1048,9 +1082,76 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     }
 
     @Test
+    public void testCreateZoneWithConsentTextAndLink() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        Consent consent = new Consent("some consent text", "http://localhost");
+        branding.setConsent(consent);
+        zone.getConfig().setBranding(branding);
+
+        String contentAsString = getMockMvc().perform(
+                post("/identity-zones")
+                        .header("Authorization", "Bearer " + identityClientToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(zone)))
+                .andReturn().getResponse().getContentAsString();
+        IdentityZone createdZone = JsonUtils.readValue(contentAsString, IdentityZone.class);
+
+        Consent createdZoneConsent = createdZone.getConfig().getBranding().getConsent();
+        assertThat(createdZoneConsent.getText(), is("some consent text"));
+        assertThat(createdZoneConsent.getLink(), is("http://localhost"));
+    }
+
+    @Test
+    public void testCreateZoneWithOnlyConsentText() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        Consent consent = new Consent("some consent text", null);
+        branding.setConsent(consent);
+        zone.getConfig().setBranding(branding);
+
+        String contentAsString = getMockMvc().perform(
+            post("/identity-zones")
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(zone)))
+            .andReturn().getResponse().getContentAsString();
+        IdentityZone createdZone = JsonUtils.readValue(contentAsString, IdentityZone.class);
+
+        Consent createdZoneConsent = createdZone.getConfig().getBranding().getConsent();
+        assertThat(createdZoneConsent.getText(), is("some consent text"));
+        assertThat(createdZoneConsent.getLink(), is((Object) null));
+    }
+
+    @Test
+    public void testCreateZoneWithNoConsentText() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        Consent consent = new Consent(null, "http://localhost");
+        branding.setConsent(consent);
+        zone.getConfig().setBranding(branding);
+
+        String contentAsString = getMockMvc().perform(
+            post("/identity-zones")
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(zone)))
+            .andExpect(status().isUnprocessableEntity())
+            .andReturn().getResponse().getContentAsString();
+
+        assertThat(contentAsString, containsString("Consent text must be set if configuring consent"));
+    }
+
+    @Test
     public void testCreateZoneWithIncorrectBrandingBannerLink() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String backgroundColor = "#112233";
         String invalidUrl = "this_is_an_invalid_url";
@@ -1074,7 +1175,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneWithIncorrectBrandingBannerLink() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String backgroundColor = "#112233";
         String validUrl = "http://example.com";
@@ -1108,11 +1209,153 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
         assertThat(mvcResult.getContentAsString(), containsString("Invalid banner link: " + invalidUrl + ". Must be a properly formatted URI beginning with http:// or https://"));
     }
 
+    @Test
+    public void testUpdateZoneWithConsent() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        branding.setConsent(new Consent("some text", "http://localhost"));
+        zone.getConfig().setBranding(branding);
+
+        String response = getMockMvc().perform(
+                post("/identity-zones")
+                        .header("Authorization", "Bearer " + identityClientToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(zone)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        IdentityZone createdZone = JsonUtils.readValue(response, IdentityZone.class);
+
+        createdZone.getConfig().getBranding().getConsent().setText("some updated text");
+        createdZone.getConfig().getBranding().getConsent().setLink("http://localhost/some-updated-link");
+
+        MockHttpServletResponse mvcResult = getMockMvc().perform(
+                put("/identity-zones/" + createdZone.getId())
+                        .header("Authorization", "Bearer " + identityClientToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(createdZone)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse();
+
+        IdentityZone updatedZone = JsonUtils.readValue(mvcResult.getContentAsString(), IdentityZone.class);
+
+        Consent createdZoneConsent = updatedZone.getConfig().getBranding().getConsent();
+        assertThat(createdZoneConsent.getText(), is("some updated text"));
+        assertThat(createdZoneConsent.getLink(), is("http://localhost/some-updated-link"));
+    }
+
+    @Test
+    public void testUpdateZoneWithOnlyConsentText() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        branding.setConsent(new Consent("some text", "http://localhost"));
+        zone.getConfig().setBranding(branding);
+
+        String response = getMockMvc().perform(
+            post("/identity-zones")
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(zone)))
+            .andExpect(status().isCreated())
+            .andReturn().getResponse().getContentAsString();
+
+        IdentityZone createdZone = JsonUtils.readValue(response, IdentityZone.class);
+
+        createdZone.getConfig().getBranding().getConsent().setLink(null);
+
+        MockHttpServletResponse mvcResult = getMockMvc().perform(
+            put("/identity-zones/" + createdZone.getId())
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(createdZone)))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse();
+
+        IdentityZone updatedZone = JsonUtils.readValue(mvcResult.getContentAsString(), IdentityZone.class);
+
+        Consent createdZoneConsent = updatedZone.getConfig().getBranding().getConsent();
+        assertThat(createdZoneConsent.getText(), is("some text"));
+        assertThat(createdZoneConsent.getLink(), is((Object) null));
+    }
+
+    @Test
+    public void testUpdateZoneWithNoConsentText() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        branding.setConsent(new Consent("some text", "http://localhost"));
+        zone.getConfig().setBranding(branding);
+
+        String response = getMockMvc().perform(
+            post("/identity-zones")
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(zone)))
+            .andExpect(status().isCreated())
+            .andReturn().getResponse().getContentAsString();
+
+        IdentityZone createdZone = JsonUtils.readValue(response, IdentityZone.class);
+
+        createdZone.getConfig().getBranding().getConsent().setText(null);
+
+        MockHttpServletResponse mvcResult = getMockMvc().perform(
+            put("/identity-zones/" + createdZone.getId())
+                .header("Authorization", "Bearer " + identityClientToken)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(createdZone)))
+            .andExpect(status().isUnprocessableEntity())
+            .andReturn()
+            .getResponse();
+
+        assertThat(mvcResult.getContentAsString(), containsString("Consent text must be set if configuring consent"));
+    }
+
+    @Test
+    public void testUpdateZoneWithInvalidConsentLink() throws Exception {
+        String id = UUID.randomUUID().toString();
+        IdentityZone zone = createSimpleIdentityZone(id);
+
+        BrandingInformation branding = new BrandingInformation();
+        branding.setConsent(new Consent("some text", "http://localhost"));
+        zone.getConfig().setBranding(branding);
+
+        String response = getMockMvc().perform(
+                post("/identity-zones")
+                        .header("Authorization", "Bearer " + identityClientToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(zone)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        IdentityZone createdZone = JsonUtils.readValue(response, IdentityZone.class);
+
+        createdZone.getConfig().getBranding().getConsent().setText("some updated text");
+        String invalidConsentLink = "not a valid link";
+        createdZone.getConfig().getBranding().getConsent().setLink(invalidConsentLink);
+
+        MockHttpServletResponse mvcResult = getMockMvc().perform(
+                put("/identity-zones/" + createdZone.getId())
+                        .header("Authorization", "Bearer " + identityClientToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(JsonUtils.writeValueAsString(createdZone)))
+          .andExpect(status().isUnprocessableEntity())
+          .andReturn()
+                .getResponse();
+
+        assertThat(mvcResult.getContentAsString(), containsString("Invalid consent link: " + invalidConsentLink + ". Must be a properly formatted URI beginning with http:// or https://"));
+    }
 
     @Test
     public void testCreateZoneWithInvalidBannerBackgroundColor() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String invalidColor = "#ZLKSWE";
         String validUrl = "http://example.com";
@@ -1136,7 +1379,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneWithInvalidBannerBackgroundColor() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String backgroundColor = "#112233";
         String validUrl = "http://example.com";
@@ -1173,7 +1416,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithInvalidBannerTextColor() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String invalidColor = "#ZLKSWE";
         String validUrl = "http://example.com";
@@ -1197,7 +1440,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneWithInvalidBannerTextColor() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String textColor = "#112233";
         String validUrl = "http://example.com";
@@ -1234,7 +1477,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testCreateZoneWithInvalidBannerLogo() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String textColor = "#112233";
         String validUrl = "http://example.com";
@@ -1259,7 +1502,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     @Test
     public void testUpdateZoneWithInvalidBannerLogo() throws Exception {
         String id = UUID.randomUUID().toString();
-        IdentityZone zone = getIdentityZone(id);
+        IdentityZone zone = createSimpleIdentityZone(id);
         Banner banner = new Banner();
         String textColor = "#112233";
         String validUrl = "http://example.com";
@@ -1299,7 +1542,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     public void testCreateZoneWithInvalidSamlKeyCertPair() throws Exception {
 
         String id = UUID.randomUUID().toString();
-        IdentityZone identityZone = getIdentityZone(id);
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         TokenPolicy tokenPolicy = new TokenPolicy(3600, 7200);
         Map<String, String> jwtKeys = new HashMap<>();
         jwtKeys.put("key_id_1", "secret_key_1");
@@ -1948,6 +2191,123 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
         updateZone(identityZone, HttpStatus.UNPROCESSABLE_ENTITY, adminToken);
     }
 
+    @Test
+    public void testCreateZone_withCustomIssuerAndSigningKeyWorks() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(new TokenPolicy());
+
+        createZone(
+            "should-not-exist" + new RandomValueStringGenerator(5).generate(),
+            HttpStatus.CREATED,
+            adminToken,
+            identityZoneConfiguration
+        );
+    }
+
+    @Test
+    public void testCreateZone_withCustomIssuerAndNoTokenPolicyShouldFail() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(null);
+
+        createZone(
+            "should-not-exist" + new RandomValueStringGenerator(5).generate(),
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "You cannot set issuer value unless you have set your own signing key for this identity zone.",
+            adminToken,
+            identityZoneConfiguration
+        );
+    }
+
+    @Test
+    public void testCreateZone_withCustomIssuerAndNoActiveSigningKeyShouldFail() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(new TokenPolicy());
+
+        createZone(
+            "should-not-exist" + new RandomValueStringGenerator(5).generate(),
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "You cannot set issuer value unless you have set your own signing key for this identity zone.",
+            adminToken,
+            identityZoneConfiguration
+        );
+    }
+
+    @Test
+    public void testUpdateZone_withCustomIssuerAndSigningKeyWorks() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(new TokenPolicy());
+
+        String zoneId = "should-not-exist" + new RandomValueStringGenerator(5).generate();
+        IdentityZone identityZone =
+            createZone(
+                zoneId,
+                HttpStatus.CREATED,
+                adminToken,
+                identityZoneConfiguration
+            );
+
+        updateZone(
+            zoneId,
+            identityZone,
+            HttpStatus.OK,
+            adminToken
+        );
+    }
+
+    @Test
+    public void testUpdateZone_withCustomIssuerSetAndNoTokenPolicyShouldFail() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(new TokenPolicy());
+
+        String zoneId = "should-not-exist" + new RandomValueStringGenerator(5).generate();
+        IdentityZone identityZone =
+            createZone(
+                zoneId,
+                HttpStatus.CREATED,
+                adminToken,
+                identityZoneConfiguration
+            );
+
+        identityZone.getConfig().setTokenPolicy(null);
+        updateZone(
+            zoneId,
+            identityZone,
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "You cannot set issuer value unless you have set your own signing key for this identity zone.",
+            adminToken
+        );
+    }
+
+    @Test
+    public void testUpdateZone_withCustomIssuerSetAndNoActiveSigningKeyShouldFail() throws Exception {
+        IdentityZoneConfiguration identityZoneConfiguration = new IdentityZoneConfiguration();
+        identityZoneConfiguration.setIssuer("http://my-custom-issuer.com");
+        identityZoneConfiguration.setTokenPolicy(new TokenPolicy());
+
+        String zoneId = "should-not-exist" + new RandomValueStringGenerator(5).generate();
+        IdentityZone identityZone =
+            createZone(
+                zoneId,
+                HttpStatus.CREATED,
+                adminToken,
+                identityZoneConfiguration
+            );
+
+        identityZone.getConfig().setTokenPolicy(new TokenPolicy());
+        updateZone(
+            zoneId,
+            identityZone,
+            HttpStatus.UNPROCESSABLE_ENTITY,
+            "You cannot set issuer value unless you have set your own signing key for this identity zone.",
+            adminToken
+        );
+    }
+
     private MfaProvider<GoogleMfaProviderConfig> createGoogleMfaProvider(String zoneId) throws Exception {
         MfaProvider<GoogleMfaProviderConfig> mfaProvider = new MfaProvider().setName(new RandomValueStringGenerator(5).generate());
         MockHttpServletRequestBuilder createMfaRequest = post("/mfa-providers")
@@ -1976,15 +2336,21 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     }
 
     private IdentityZone createZone(String id, HttpStatus expect, String token, IdentityZoneConfiguration zoneConfiguration) throws Exception {
-        IdentityZone identityZone = getIdentityZone(id);
+        Map<String, String> keys = new HashMap<>();
+        keys.put("kid", "key");
+        zoneConfiguration.getTokenPolicy().setKeys(keys);
+        zoneConfiguration.getTokenPolicy().setActiveKeyId("kid");
+        zoneConfiguration.getTokenPolicy().setKeys(keys);
+
+        return createZone(id, expect, "" , token, zoneConfiguration);
+    }
+
+    private IdentityZone createZone(String id, HttpStatus expect, String expectedContent, String token, IdentityZoneConfiguration zoneConfiguration) throws Exception {
+        IdentityZone identityZone = createSimpleIdentityZone(id);
         identityZone.setConfig(zoneConfiguration);
         identityZone.getConfig().getSamlConfig().setPrivateKey(serviceProviderKey);
         identityZone.getConfig().getSamlConfig().setPrivateKeyPassword(serviceProviderKeyPassword);
         identityZone.getConfig().getSamlConfig().setCertificate(serviceProviderCertificate);
-        Map<String, String> keys = new HashMap<>();
-        keys.put("kid", "key");
-        identityZone.getConfig().getTokenPolicy().setKeys(keys);
-        identityZone.getConfig().getTokenPolicy().setActiveKeyId("kid");
 
         MvcResult result = getMockMvc().perform(
             post("/identity-zones")
@@ -1992,6 +2358,23 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
                 .contentType(APPLICATION_JSON)
                 .content(JsonUtils.writeValueAsString(identityZone)))
             .andExpect(status().is(expect.value()))
+            .andExpect(content().string(containsString(expectedContent)))
+            .andReturn();
+
+        if (expect.is2xxSuccessful()) {
+            return JsonUtils.readValue(result.getResponse().getContentAsString(), IdentityZone.class);
+        }
+        return null;
+    }
+
+    private IdentityZone updateZone(String id, IdentityZone identityZone, HttpStatus expect, String expectedContent, String token) throws Exception {
+        MvcResult result = getMockMvc().perform(
+            put("/identity-zones/" + id)
+                .header("Authorization", "Bearer " + token)
+                .contentType(APPLICATION_JSON)
+                .content(JsonUtils.writeValueAsString(identityZone)))
+            .andExpect(status().is(expect.value()))
+            .andExpect(content().string(containsString(expectedContent)))
             .andReturn();
 
         if (expect.is2xxSuccessful()) {
@@ -2001,18 +2384,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
     }
 
     private IdentityZone updateZone(String id, IdentityZone identityZone, HttpStatus expect, String token) throws Exception {
-        MvcResult result = getMockMvc().perform(
-                put("/identity-zones/" + id)
-                        .header("Authorization", "Bearer " + token)
-                        .contentType(APPLICATION_JSON)
-                        .content(JsonUtils.writeValueAsString(identityZone)))
-                .andExpect(status().is(expect.value()))
-                .andReturn();
-
-        if (expect.is2xxSuccessful()) {
-            return JsonUtils.readValue(result.getResponse().getContentAsString(), IdentityZone.class);
-        }
-        return null;
+        return updateZone(id, identityZone, expect, "", token);
     }
 
     private IdentityZone updateZone(IdentityZone identityZone, HttpStatus expect, String token) throws Exception {
@@ -2037,7 +2409,7 @@ public class IdentityZoneEndpointsMockMvcTests extends InjectedMockContextTest {
         }
     }
 
-    private IdentityZone getIdentityZone(String id) {
+    private IdentityZone createSimpleIdentityZone(String id) {
         IdentityZone identityZone = new IdentityZone();
         identityZone.setId(id);
         identityZone.setSubdomain(hasText(id) ? id : new RandomValueStringGenerator().generate());

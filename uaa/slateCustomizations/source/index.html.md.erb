@@ -515,6 +515,10 @@ _Response Fields_
 
 # Introspect Token
 
+<aside class="success">
+  Added in UAA 4.9.0
+</aside>
+
 Introspect token endpoint is [RFC-7662](https://tools.ietf.org/html/rfc7662) Complaint. Active flag is responsible for showing the validity of the token and not the HTTP status code.
 Status code will be 200 OK for both valid and invalid tokens.
 
@@ -613,6 +617,34 @@ _Error Codes_
 | Error Code | Description                                                                                            |
 |------------|--------------------------------------------------------------------------------------------------------|
 | 401        | Unauthorized - Unregistered client or incorrect client secret                                          |
+
+# Session Management
+
+## Logout.do
+
+The logout endpoint is meant to be used by applications to log the user out of the UAA session. UAA will only log a user out of the UAA session if they also hit this endpoint, and may also perform Single Logout with SAML providers if configured to do so.
+The recommendation for application authors is to:
+
+* provide a local logout feature specific to the client application
+  and use that to clear state in the client
+* as part of the logout redirect to the logout endpoint using their client ID
+* provide a redirect param in the link to the logout success page of their application so
+  that the user come back to a familiar place when logged out
+* add the logout success page to the client's redirect_uri configuration to whitelist the URL
+
+If the chosen redirect URI is not whitelisted, users will land on the UAA login page. This is a security feature intended to prevent open redirects as per [RFC 6749](https://tools.ietf.org/html/rfc6749#section-10.15).
+
+<%= ERB.new(File.read("../../build/generated-snippets/LogoutInfoEndpointDocs/logout/curl-request.md")).result(binding) %>
+<%= ERB.new(File.read("../../build/generated-snippets/LogoutInfoEndpointDocs/logout/http-request.md")).result(binding) %>
+<%= ERB.new(File.read("../../build/generated-snippets/LogoutInfoEndpointDocs/logout/http-response.md")).result(binding) %>
+
+_Request Parameters_
+
+<%= ERB.new(File.read("../../build/generated-snippets/LogoutInfoEndpointDocs/logout/request-parameters.md")).result(binding) %>
+
+_Response Headers_
+
+<%= ERB.new(File.read("../../build/generated-snippets/LogoutInfoEndpointDocs/logout/response-headers.md")).result(binding) %>
 
 # Identity Zones
 
@@ -1335,8 +1367,8 @@ _Error Codes_
 
 ## Create
 
-<aside class="warning">
-  MFA support is in active development and is not ready for production use.
+<aside class="success">
+  Added in UAA 4.13.0
 </aside>
 
 <%= ERB.new(File.read("../../build/generated-snippets/MfaProviderEndpointsDocs/testCreateGoogleMfaProvider/curl-request.md")).result(binding) %>
@@ -1369,9 +1401,6 @@ _Error Codes_
 ## Update
 
 <aside class="warning">
-  MFA support is in active development and is not ready for production use.
-</aside>
-<aside class="warning">
   Update is not supported for MFA provider.
 </aside>
 
@@ -1387,8 +1416,8 @@ _Error Codes_
 
 ## Get
 
-<aside class="warning">
-  MFA support is in active development and is not ready for production use.
+<aside class="success">
+  Added in UAA 4.13.0
 </aside>
 
 <%= ERB.new(File.read("../../build/generated-snippets/MfaProviderEndpointsDocs/testGetMfaProvider/curl-request.md")).result(binding) %>
@@ -1414,8 +1443,8 @@ _Error Codes_
 
 ## Delete
 
-<aside class="warning">
-  MFA support is in active development and is not ready for production use.
+<aside class="success">
+  Added in UAA 4.13.0
 </aside>
 
 <%= ERB.new(File.read("../../build/generated-snippets/MfaProviderEndpointsDocs/testDeleteMfaProvider/curl-request.md")).result(binding) %>
@@ -1440,8 +1469,8 @@ _Error Codes_
 
 ## List
 
-<aside class="warning">
-  MFA support is in active development and is not ready for production use.
+<aside class="success">
+  Added in UAA 4.13.0
 </aside>
 
 <%= ERB.new(File.read("../../build/generated-snippets/MfaProviderEndpointsDocs/testListMfaProviders/curl-request.md")).result(binding) %>
