@@ -66,6 +66,7 @@ public class IdentityZoneResolvingFilter extends OncePerRequestFilter implements
             response.sendError(HttpServletResponse.SC_NOT_FOUND, "Cannot find identity zone for subdomain " + subdomain);
             return;
         }
+        logger.info("Identity zone: " + identityZone.getId());
         try {
             IdentityZoneHolder.set(identityZone);
             filterChain.doFilter(request, response);

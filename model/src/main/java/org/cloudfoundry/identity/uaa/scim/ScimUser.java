@@ -215,7 +215,7 @@ public class ScimUser extends ScimCore<ScimUser> {
         // this should probably be an enum
         private String type;
 
-        private boolean primary = false;
+        private boolean primary = true;
 
         public String getValue() {
             return value;
@@ -314,7 +314,7 @@ public class ScimUser extends ScimCore<ScimUser> {
 
     private String profileUrl;
 
-    private String title;;
+    private String title;
 
     private String userType;
 
