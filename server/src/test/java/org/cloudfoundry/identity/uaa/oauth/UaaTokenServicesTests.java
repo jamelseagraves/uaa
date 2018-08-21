@@ -33,6 +33,7 @@ import org.cloudfoundry.identity.uaa.oauth.token.matchers.OAuth2RefreshTokenMatc
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserPrototype;
 import org.cloudfoundry.identity.uaa.util.JsonUtils;
+import org.cloudfoundry.identity.uaa.util.TokenValidation;
 import org.cloudfoundry.identity.uaa.zone.ClientServicesExtension;
 import org.cloudfoundry.identity.uaa.zone.IdentityZone;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
@@ -1755,6 +1756,54 @@ public class UaaTokenServicesTests {
         readAccessToken(new HashSet<>(Arrays.asList(ClaimConstants.EMAIL, ClaimConstants.USER_NAME)));
     }
 
+    @Test
+    public void testReadAccessToken_When_Given_Refresh_token_should_throw_exception() {
+        tokenServices.setExcludedClaims(new HashSet<>(Arrays.asList(ClaimConstants.EMAIL, ClaimConstants.USER_NAME)));
+        AuthorizationRequest authorizationRequest =new AuthorizationRequest(CLIENT_ID, tokenSupport.requestedAuthScopes);
+        authorizationRequest.setResourceIds(new HashSet<>(tokenSupport.resourceIds));
+        Map<String, String> azParameters = new HashMap<>(authorizationRequest.getRequestParameters());
+        azParameters.put(GRANT_TYPE, AUTHORIZATION_CODE);
+        authorizationRequest.setRequestParameters(azParameters);
+        Authentication userAuthentication = tokenSupport.defaultUserAuthentication;
+
+        Calendar expiresAt1 = Calendar.getInstance();
+        expiresAt1.add(Calendar.MILLISECOND, 3000);
+        Calendar updatedAt1 = Calendar.getInstance();
+        updatedAt1.add(Calendar.MILLISECOND, -1000);
+
+        tokenSupport.approvalStore.addApproval(new Approval()
+            .setUserId(tokenSupport.userId)
+            .setClientId(CLIENT_ID)
+            .setScope(tokenSupport.readScope.get(0))
+            .setExpiresAt(expiresAt1.getTime())
+            .setStatus(ApprovalStatus.APPROVED)
+            .setLastUpdatedAt(updatedAt1.getTime()), IdentityZoneHolder.get().getId());
+        tokenSupport.approvalStore.addApproval(new Approval()
+            .setUserId(tokenSupport.userId)
+            .setClientId(CLIENT_ID)
+            .setScope(tokenSupport.writeScope.get(0))
+            .setExpiresAt(expiresAt1.getTime())
+            .setStatus(ApprovalStatus.APPROVED)
+            .setLastUpdatedAt(updatedAt1.getTime()), IdentityZoneHolder.get().getId());
+        Approval approval = new Approval()
+            .setUserId(tokenSupport.userId)
+            .setClientId(CLIENT_ID)
+            .setScope(OPENID)
+            .setExpiresAt(expiresAt1.getTime())
+            .setStatus(ApprovalStatus.APPROVED)
+            .setLastUpdatedAt(updatedAt1.getTime());
+        tokenSupport.approvalStore.addApproval(
+            approval, IdentityZoneHolder.get().getId());
+
+        OAuth2Authentication authentication = new OAuth2Authentication(authorizationRequest.createOAuth2Request(), userAuthentication);
+        OAuth2AccessToken accessToken = tokenServices.createAccessToken(authentication);
+
+
+        expectedException.expectMessage("Invalid access token.");
+        tokenServices.readAccessToken(accessToken.getRefreshToken().getValue());
+    }
+
+
     public void readAccessToken(Set<String> excludedClaims) {
         tokenServices.setExcludedClaims(excludedClaims);
         AuthorizationRequest authorizationRequest =new AuthorizationRequest(CLIENT_ID, tokenSupport.requestedAuthScopes);
@@ -1975,6 +2024,59 @@ public class UaaTokenServicesTests {
         System.out.println("newAccessToken = " + newAccessToken);
     }
 
+    @Test
+    public void loadAuthentication_when_given_an_opaque_refreshToken_should_throw_exception() {
+        tokenSupport.defaultClient.setAutoApproveScopes(singleton("true"));
+        AuthorizationRequest authorizationRequest = new AuthorizationRequest(CLIENT_ID,tokenSupport.requestedAuthScopes);
+        authorizationRequest.setResponseTypes(new HashSet(Arrays.asList("token")));
+        authorizationRequest.setResourceIds(new HashSet<>(tokenSupport.resourceIds));
+        Map<String, String> azParameters = new HashMap<>(authorizationRequest.getRequestParameters());
+        azParameters.put(GRANT_TYPE, AUTHORIZATION_CODE);
+
+        azParameters.put(REQUEST_TOKEN_FORMAT, TokenConstants.OPAQUE);
+
+        authorizationRequest.setRequestParameters(azParameters);
+        Authentication userAuthentication = tokenSupport.defaultUserAuthentication;
+
+        OAuth2Authentication authentication = new OAuth2Authentication(authorizationRequest.createOAuth2Request(), userAuthentication);
+        OAuth2AccessToken compositeToken = tokenServices.createAccessToken(authentication);
+
+        String refreshTokenValue = tokenProvisioning.retrieve(compositeToken.getRefreshToken().getValue(), IdentityZoneHolder.get().getId()).getValue();
+
+        expectedException.expect(InvalidTokenException.class);
+        expectedException.expectMessage("Invalid access token.");
+
+        tokenServices.loadAuthentication(refreshTokenValue);
+    }
+
+    @Rule
+    public ExpectedException expectedException = ExpectedException.none();
+
+    @Test
+    public void loadAuthentication_when_given_an_refresh_jwt_should_throw_exception() {
+        IdentityZoneHolder.get().getConfig().getTokenPolicy().setJwtRevocable(true);
+        tokenSupport.defaultClient.setAutoApproveScopes(singleton("true"));
+        AuthorizationRequest authorizationRequest = new AuthorizationRequest(CLIENT_ID,tokenSupport.requestedAuthScopes);
+        authorizationRequest.setResponseTypes(new HashSet(Arrays.asList("token")));
+        authorizationRequest.setResourceIds(new HashSet<>(tokenSupport.resourceIds));
+        Map<String, String> azParameters = new HashMap<>(authorizationRequest.getRequestParameters());
+        azParameters.put(GRANT_TYPE, AUTHORIZATION_CODE);
+
+        azParameters.put(REQUEST_TOKEN_FORMAT, JWT.getStringValue());
+
+        authorizationRequest.setRequestParameters(azParameters);
+        Authentication userAuthentication = tokenSupport.defaultUserAuthentication;
+
+        OAuth2Authentication authentication = new OAuth2Authentication(authorizationRequest.createOAuth2Request(), userAuthentication);
+        OAuth2AccessToken compositeToken = tokenServices.createAccessToken(authentication);
+        TokenValidation refreshToken = tokenServices.validateToken(compositeToken.getRefreshToken().getValue());
+
+        String refreshTokenValue = tokenProvisioning.retrieve(refreshToken.getClaims().get("jti").toString(), IdentityZoneHolder.get().getId()).getValue();
+
+        expectedException.expect(InvalidTokenException.class);
+        expectedException.expectMessage("Invalid access token.");
+        tokenServices.loadAuthentication(refreshTokenValue);
+    }
 
     @Test
     public void testLoadAuthenticationForAClient() {

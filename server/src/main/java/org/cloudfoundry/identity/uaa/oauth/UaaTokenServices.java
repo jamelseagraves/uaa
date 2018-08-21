@@ -938,8 +938,12 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
             throw new InvalidTokenException("Invalid access token value, must be at least 30 characters");
         }
 
-        TokenValidation tokenValidation = validateToken(accessToken);
+        TokenValidation tokenValidation = validateToken(accessToken)
+          .checkAccessToken()
+          .throwIfInvalid();
+
         Map<String, Object> claims = tokenValidation.getClaims();
+
         accessToken = tokenValidation.getJwt().getEncoded();
 
         // Check token expiry
@@ -1001,7 +1005,10 @@ public class UaaTokenServices implements AuthorizationServerTokenServices, Resou
      */
     @Override
     public OAuth2AccessToken readAccessToken(String accessToken) {
-        TokenValidation tokenValidation = validateToken(accessToken);
+        TokenValidation tokenValidation = validateToken(accessToken)
+          .checkAccessToken()
+          .throwIfInvalid();
+
         Map<String, Object> claims = tokenValidation.getClaims();
         accessToken = tokenValidation.getJwt().getEncoded();
 
