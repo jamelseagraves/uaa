@@ -32,7 +32,6 @@ import org.cloudfoundry.identity.uaa.mfa.MfaProvider;
 import org.cloudfoundry.identity.uaa.mfa.MfaProviderProvisioning;
 import org.cloudfoundry.identity.uaa.mfa.UserGoogleMfaCredentials;
 import org.cloudfoundry.identity.uaa.mfa.exception.MfaAlreadyExistsException;
-import org.cloudfoundry.identity.uaa.mock.InjectedMockContextTest;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientDetailsModification;
 import org.cloudfoundry.identity.uaa.oauth.token.TokenConstants;
 import org.cloudfoundry.identity.uaa.provider.AbstractIdentityProviderDefinition;
@@ -100,6 +99,7 @@ import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.support.GenericWebApplicationContext;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.servlet.http.Cookie;
@@ -121,6 +121,8 @@ import java.util.regex.Pattern;
 
 import static java.util.Arrays.asList;
 import static org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils.CookieCsrfPostProcessor.cookieCsrf;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.TokenFormat.OPAQUE;
 import static org.cloudfoundry.identity.uaa.scim.ScimGroupMember.Type.USER;
 import static org.cloudfoundry.identity.uaa.web.UaaSavedRequestAwareAuthenticationSuccessHandler.SAVED_REQUEST_SESSION_ATTRIBUTE;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -298,8 +300,6 @@ public final class MockMvcUtils {
 
 
     public static MockMvcUtils utils() {
-        // this is all static now
-        // TODO: replace calls to this method with static references
         return null;
     }
 
@@ -1148,12 +1148,12 @@ public final class MockMvcUtils {
             oauthTokenPost.header("Host", zone.getSubdomain() + ".localhost");
         }
         if (opaque) {
-            oauthTokenPost.param(TokenConstants.REQUEST_TOKEN_FORMAT, TokenConstants.OPAQUE);
+            oauthTokenPost.param(TokenConstants.REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
         }
 
         MvcResult result = mockMvc.perform(oauthTokenPost).andDo(print()).andExpect(status().isOk()).andReturn();
-        InjectedMockContextTest.OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(),
-          InjectedMockContextTest.OAuthToken.class);
+        OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(),
+          OAuthToken.class);
         return oauthToken.accessToken;
     }
 
@@ -1183,9 +1183,9 @@ public final class MockMvcUtils {
           .header("Authorization", basicDigestHeaderValue)
           .header("Accept", MediaType.APPLICATION_JSON_VALUE)
           .session(session)
-          .param(OAuth2Utils.GRANT_TYPE, "authorization_code")
+          .param(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
           .param(OAuth2Utils.RESPONSE_TYPE, "code")
-          .param(TokenConstants.REQUEST_TOKEN_FORMAT, TokenConstants.OPAQUE)
+          .param(TokenConstants.REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue())
           .param(OAuth2Utils.STATE, state)
           .param(OAuth2Utils.CLIENT_ID, clientId)
           .param(OAuth2Utils.REDIRECT_URI, "http://localhost/test");
@@ -1201,8 +1201,7 @@ public final class MockMvcUtils {
         authRequest = post("/oauth/token")
           .header("Authorization", basicDigestHeaderValue)
           .header("Accept", MediaType.APPLICATION_JSON_VALUE)
-          .param(OAuth2Utils.GRANT_TYPE, "authorization_code")
-          .param(OAuth2Utils.RESPONSE_TYPE, "token")
+          .param(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_AUTHORIZATION_CODE)
           .param("code", code)
           .param(OAuth2Utils.CLIENT_ID, clientId)
           .param(OAuth2Utils.REDIRECT_URI, "http://localhost/test");
@@ -1210,8 +1209,8 @@ public final class MockMvcUtils {
             authRequest.param(OAuth2Utils.SCOPE, scope);
         }
         result = mockMvc.perform(authRequest).andExpect(status().is2xxSuccessful()).andReturn();
-        InjectedMockContextTest.OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(),
-          InjectedMockContextTest.OAuthToken.class);
+        OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(),
+          OAuthToken.class);
         return oauthToken.accessToken;
 
     }
@@ -1286,13 +1285,13 @@ public final class MockMvcUtils {
             oauthTokenPost.with(new SetServerNameRequestPostProcessor(subdomain + ".localhost"));
         }
         if (opaque) {
-            oauthTokenPost.param(TokenConstants.REQUEST_TOKEN_FORMAT, TokenConstants.OPAQUE);
+            oauthTokenPost.param(TokenConstants.REQUEST_TOKEN_FORMAT, OPAQUE.getStringValue());
         }
         MvcResult result = mockMvc.perform(oauthTokenPost)
           .andDo(print())
           .andExpect(status().isOk())
           .andReturn();
-        InjectedMockContextTest.OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(), InjectedMockContextTest.OAuthToken.class);
+        OAuthToken oauthToken = JsonUtils.readValue(result.getResponse().getContentAsString(), OAuthToken.class);
         return oauthToken.accessToken;
     }
 
@@ -1321,6 +1320,12 @@ public final class MockMvcUtils {
 
 
     public static <T extends ApplicationEvent> TestApplicationEventListener<T> addEventListener(ConfigurableApplicationContext applicationContext, Class<T> clazz) {
+        TestApplicationEventListener<T> listener = TestApplicationEventListener.forEventClass(clazz);
+        applicationContext.addApplicationListener(listener);
+        return listener;
+    }
+
+    public static <T extends ApplicationEvent> TestApplicationEventListener<T> addEventListener(GenericWebApplicationContext applicationContext, Class<T> clazz) {
         TestApplicationEventListener<T> listener = TestApplicationEventListener.forEventClass(clazz);
         applicationContext.addApplicationListener(listener);
         return listener;

@@ -12,13 +12,17 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.authentication;
 
-import javax.servlet.http.HttpServletRequest;
-import java.io.Serializable;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.bouncycastle.util.encoders.Base64;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.util.StringUtils;
+
+import javax.servlet.http.HttpServletRequest;
+import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Contains additional information about the authentication request which may be
@@ -42,6 +46,9 @@ public class UaaAuthenticationDetails implements Serializable {
 
     private String clientId;
 
+    @JsonIgnore
+    private Map<String,String[]> parameterMap;
+
     private UaaAuthenticationDetails() {
         this.origin = "unknown";
         this.sessionId = "unknown";
@@ -63,6 +70,8 @@ public class UaaAuthenticationDetails implements Serializable {
                 if(StringUtils.hasText(authHeader) && authHeader.startsWith("Basic ")) {
                     String decodedCredentials = new String(Base64.decode(authHeader.substring("Basic ".length())));
                     String[] split = decodedCredentials.split(":");
+                    if (split == null || split.length == 0)
+                        throw new BadCredentialsException("Invalid basic authentication token");
                     this.clientId = split[0];
                 }
             }
@@ -71,6 +80,7 @@ public class UaaAuthenticationDetails implements Serializable {
         }
         this.addNew = Boolean.parseBoolean(request.getParameter(ADD_NEW));
         this.loginHint = UaaLoginHint.parseRequestParameter(request.getParameter("login_hint"));
+        this.parameterMap = request.getParameterMap();
     }
 
     public UaaAuthenticationDetails(@JsonProperty("addNew") boolean addNew,
@@ -109,6 +119,10 @@ public class UaaAuthenticationDetails implements Serializable {
 
     public void setLoginHint(UaaLoginHint loginHint) {
         this.loginHint = loginHint;
+    }
+
+    public Map<String, String[]> getParameterMap() {
+        return new HashMap<>(parameterMap);
     }
 
     @Override

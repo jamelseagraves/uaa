@@ -17,7 +17,6 @@ import org.cloudfoundry.identity.uaa.client.event.ClientUpdateEvent;
 import org.cloudfoundry.identity.uaa.client.event.SecretChangeEvent;
 import org.cloudfoundry.identity.uaa.client.event.SecretFailureEvent;
 import org.cloudfoundry.identity.uaa.error.UaaException;
-import org.cloudfoundry.identity.uaa.impl.config.UaaConfiguration;
 import org.cloudfoundry.identity.uaa.mock.util.MockMvcUtils;
 import org.cloudfoundry.identity.uaa.oauth.client.ClientDetailsModification;
 import org.cloudfoundry.identity.uaa.oauth.client.SecretChangeRequest;
@@ -32,14 +31,11 @@ import org.cloudfoundry.identity.uaa.util.JsonUtils;
 import org.cloudfoundry.identity.uaa.util.PredicateMatcher;
 import org.cloudfoundry.identity.uaa.zone.IdentityZoneHolder;
 import org.cloudfoundry.identity.uaa.zone.ClientSecretPolicy;
-import org.cloudfoundry.identity.uaa.zone.IdentityZone;
-import org.cloudfoundry.identity.uaa.zone.IdentityZoneConfiguration;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.common.util.RandomValueStringGenerator;
@@ -47,7 +43,6 @@ import org.springframework.security.oauth2.provider.ClientDetails;
 import org.springframework.security.oauth2.provider.client.BaseClientDetails;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.ResultMatcher;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.util.StringUtils;
 
@@ -65,6 +60,7 @@ import static org.cloudfoundry.identity.uaa.mock.util.ClientDetailsHelper.arrayF
 import static org.cloudfoundry.identity.uaa.mock.util.ClientDetailsHelper.clientArrayFromString;
 import static org.cloudfoundry.identity.uaa.oauth.client.SecretChangeRequest.ChangeMode.ADD;
 import static org.cloudfoundry.identity.uaa.oauth.client.SecretChangeRequest.ChangeMode.DELETE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.hasEntry;
@@ -256,7 +252,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         BaseClientDetails clientDetails = JsonUtils.readValue(mvcResult.getResponse().getContentAsString(), BaseClientDetails.class);
         assertEquals(client.getClientId(), clientDetails.getClientId());
 
-        clientDetails.setAuthorizedGrantTypes(Collections.singleton("authorization_code"));
+        clientDetails.setAuthorizedGrantTypes(Collections.singleton(GRANT_TYPE_AUTHORIZATION_CODE));
         MockHttpServletRequestBuilder updateClient = put("/oauth/clients/" + client.getClientId())
             .header("Authorization", "Bearer" + adminUserToken)
             .accept(APPLICATION_JSON)
@@ -265,7 +261,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MvcResult result = getMockMvc().perform(updateClient).andExpect(status().isOk()).andReturn();
         BaseClientDetails updatedClientDetails = JsonUtils.readValue(result.getResponse().getContentAsString(), BaseClientDetails.class);
         assertEquals(client.getClientId(), updatedClientDetails.getClientId());
-        assertThat(updatedClientDetails.getAuthorizedGrantTypes(), PredicateMatcher.<String>has(m -> m.equals("authorization_code")));
+        assertThat(updatedClientDetails.getAuthorizedGrantTypes(), PredicateMatcher.<String>has(m -> m.equals(GRANT_TYPE_AUTHORIZATION_CODE)));
 
         MockHttpServletRequestBuilder deleteClient = delete("/oauth/clients/" + client.getClientId())
             .header("Authorization", "Bearer" + adminUserToken)
@@ -474,7 +470,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -488,7 +484,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -502,7 +498,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -516,7 +512,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("SECRET");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -530,7 +526,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("Secret1@");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isCreated());
@@ -544,7 +540,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -558,7 +554,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         MockMvcUtils.setZoneConfiguration(getWebApplicationContext(), result.getIdentityZone().getId(), result.getIdentityZone().getConfig());
 
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://sample.redirect");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://sample.redirect");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isBadRequest());
@@ -569,7 +565,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         String subdomain = generator.generate();
         MockMvcUtils.IdentityZoneCreationResult result = MockMvcUtils.utils().createOtherIdentityZoneAndReturnResult(subdomain, getMockMvc(), getWebApplicationContext(), null);
         String clientId = generator.generate();
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://some.redirect.url.com");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://some.redirect.url.com");
         client.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), client, result.getIdentityZone(),
             status().isCreated());
@@ -588,7 +584,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
 
         String zonesClientsAdminToken = MockMvcUtils.utils().getClientOAuthAccessToken(getMockMvc(), client.getClientId(), client.getClientSecret(), "zones." + id + ".clients.admin");
 
-        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://some.redirect.url.com");
+        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://some.redirect.url.com");
         newclient.setClientSecret("secret");
         newclient = MockMvcUtils.utils().createClient(getMockMvc(), zonesClientsAdminToken, newclient,
             result.getIdentityZone(), status().isCreated());
@@ -605,7 +601,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
 
         setupAdminUserToken();
 
-        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://some.redirect.url.com");
+        BaseClientDetails client = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://some.redirect.url.com");
         client.setClientSecret("secret");
         BaseClientDetails createdClient = MockMvcUtils.utils().createClient(getMockMvc(), adminUserToken, client,
             result.getIdentityZone(), status().isCreated());
@@ -622,7 +618,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         BaseClientDetails clientDetails = JsonUtils.readValue(mvcResult.getResponse().getContentAsString(), BaseClientDetails.class);
         assertEquals(client.getClientId(), clientDetails.getClientId());
 
-        clientDetails.setAuthorizedGrantTypes(Collections.singleton("authorization_code"));
+        clientDetails.setAuthorizedGrantTypes(Collections.singleton(GRANT_TYPE_AUTHORIZATION_CODE));
         MockHttpServletRequestBuilder updateClient = put("/oauth/clients/" + client.getClientId())
             .header("Authorization", "Bearer" + adminUserToken)
             .header("X-Identity-Zone-Id", zoneId)
@@ -632,7 +628,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
         mvcResult = getMockMvc().perform(updateClient).andExpect(status().isOk()).andReturn();
         BaseClientDetails updatedClientDetails = JsonUtils.readValue(mvcResult.getResponse().getContentAsString(), BaseClientDetails.class);
         assertEquals(client.getClientId(), updatedClientDetails.getClientId());
-        assertThat(updatedClientDetails.getAuthorizedGrantTypes(), PredicateMatcher.<String>has(m -> m.equals("authorization_code")));
+        assertThat(updatedClientDetails.getAuthorizedGrantTypes(), PredicateMatcher.<String>has(m -> m.equals(GRANT_TYPE_AUTHORIZATION_CODE)));
 
         MockHttpServletRequestBuilder deleteClient = delete("/oauth/clients/" + client.getClientId())
             .header("Authorization", "Bearer" + adminUserToken)
@@ -657,7 +653,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
 
         String zonesClientsAdminToken = MockMvcUtils.utils().getClientOAuthAccessToken(getMockMvc(), client.getClientId(), client.getClientSecret(), "zones." + id + ".clients.admin");
 
-        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://some.redirect.url.com");
+        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://some.redirect.url.com");
         newclient.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), zonesClientsAdminToken, newclient,
             result.getIdentityZone(), status().isCreated());
@@ -676,7 +672,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
 
         String zonesClientsReadToken = MockMvcUtils.utils().getClientOAuthAccessToken(getMockMvc(), client.getClientId(), client.getClientSecret(), "zones." + id + ".clients.read");
 
-        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", "authorization_code", "", "http://some.redirect.url.com");
+        BaseClientDetails newclient = new BaseClientDetails(clientId, "", "openid", GRANT_TYPE_AUTHORIZATION_CODE, "", "http://some.redirect.url.com");
         newclient.setClientSecret("secret");
         MockMvcUtils.utils().createClient(getMockMvc(), result.getZoneAdminToken(), newclient,
             result.getIdentityZone(), status().isCreated());
@@ -896,7 +892,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
     }
 
     @Test
-    public void testAddUpdateDeleteClientsTxDeleteFailedRollback() throws Exception {
+    public void testAddUpdateDeleteClientsTxDeleteUnsuccessfulRollback() throws Exception {
         ClientDetailsModification[] details = new ClientDetailsModification[15];
         for (int i = 0; i < 5; i++) {
             details[i] = (ClientDetailsModification) createClient(adminToken, null, SECRET,
@@ -1337,7 +1333,7 @@ public class ClientAdminEndpointsMockMvcTests extends AdminClientCreator {
     }
 
     @Test
-    public void testFailedSecretChangeEvent() throws Exception {
+    public void testUnsuccessfulSecretChangeEvent() throws Exception {
 
         List<String> scopes = Arrays.asList("oauth.approvals", "clients.secret");
         BaseClientDetails client = createBaseClient(null, SECRET, Arrays.asList("password", "client_credentials"), scopes, scopes);

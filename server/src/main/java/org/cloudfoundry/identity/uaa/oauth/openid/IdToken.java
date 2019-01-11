@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import org.cloudfoundry.identity.uaa.oauth.AuthTimeDateConverter;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -30,6 +31,7 @@ import static org.cloudfoundry.identity.uaa.oauth.token.ClaimConstants.USER_NAME
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class IdToken {
+    public static final String ACR_VALUES_KEY = "values";
     public final String sub;
     public final List<String> aud;
     public final String iss;
@@ -126,7 +128,7 @@ public class IdToken {
             return null;
         }
         HashMap<String, Set<String>> acrMap = new HashMap<>();
-        acrMap.put("values", acr);
+        acrMap.put(ACR_VALUES_KEY, acr);
         return acrMap;
     }
 
@@ -147,10 +149,7 @@ public class IdToken {
 
     @JsonProperty(AUTH_TIME)
     public Long getAuthTimeInSeconds() {
-        if (authTime == null) {
-            return null;
-        }
-        return authTime.getTime() / 1000;
+        return AuthTimeDateConverter.dateToAuthTime(authTime);
     }
 
     @JsonProperty(USER_ID)

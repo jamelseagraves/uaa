@@ -262,7 +262,7 @@ public class LoginIT {
     }
 
     @Test
-    public void testFailedLogin() throws Exception {
+    public void testUnsuccessfulLogin() throws Exception {
         webDriver.get(baseUrl + "/login");
         assertEquals("Cloud Foundry", webDriver.getTitle());
 
@@ -308,7 +308,7 @@ public class LoginIT {
     }
 
     @Test
-    public void testRedirectAfterFailedLogin() throws Exception {
+    public void testRedirectAfterUnsuccessfulLogin() throws Exception {
         RestTemplate template = new RestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
@@ -342,7 +342,7 @@ public class LoginIT {
     }
 
     @Test
-    public void userLockedoutAfterFailedAttempts() throws Exception {
+    public void userLockedoutAfterUnsuccessfulAttempts() throws Exception {
         String userEmail = createAnotherUser();
 
         webDriver.get(baseUrl + "/logout.do");
@@ -480,13 +480,6 @@ public class LoginIT {
         webDriver.get(res + "/logout.do");
         webDriver.manage().deleteAllCookies();
         return res;
-    }
-
-    private void createZoneAdmin() {
-        RestTemplate identityClient = IntegrationTestUtils.getClientCredentialsTemplate(
-            IntegrationTestUtils.getClientCredentialsResource(baseUrl, new String[]{"zones.write", "zones.read", "scim.zones"}, "identity", "identitysecret")
-        );
-        //TODO add zone admin client here, return it
     }
 
     private void loginThroughDiscovery(String userEmail, String password) {

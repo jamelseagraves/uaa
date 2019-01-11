@@ -65,6 +65,7 @@ import java.util.Set;
 
 import static org.cloudfoundry.identity.uaa.oauth.client.SecretChangeRequest.ChangeMode.ADD;
 import static org.cloudfoundry.identity.uaa.oauth.client.SecretChangeRequest.ChangeMode.DELETE;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_AUTHORIZATION_CODE;
 import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_JWT_BEARER;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -76,9 +77,9 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyBoolean;
-import static org.mockito.Matchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
@@ -180,14 +181,14 @@ public class ClientAdminEndpointsTests {
         input = new BaseClientDetails();
         input.setClientId("foo");
         input.setClientSecret("secret");
-        input.setAuthorizedGrantTypes(Arrays.asList("authorization_code"));
+        input.setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE));
         input.setRegisteredRedirectUri(SINGLE_REDIRECT_URL);
 
         for (int i=0; i<inputs.length; i++) {
             inputs[i] = new ClientDetailsModification();
             inputs[i].setClientId("foo-"+i);
             inputs[i].setClientSecret("secret-"+i);
-            inputs[i].setAuthorizedGrantTypes(Arrays.asList("authorization_code"));
+            inputs[i].setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE));
             inputs[i].setRegisteredRedirectUri(new HashSet(Arrays.asList("https://foo-"+i)));
             inputs[i].setAccessTokenValiditySeconds(300);
         }
@@ -195,7 +196,7 @@ public class ClientAdminEndpointsTests {
         detail = new BaseClientDetails(input);
         detail.setResourceIds(Arrays.asList("none"));
         // refresh token is added automatically by endpoint validation
-        detail.setAuthorizedGrantTypes(Arrays.asList("authorization_code", "refresh_token"));
+        detail.setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE, "refresh_token"));
         detail.setScope(Arrays.asList("uaa.none"));
         detail.setAuthorities(AuthorityUtils.commaSeparatedStringToAuthorityList("uaa.none"));
 
@@ -203,7 +204,7 @@ public class ClientAdminEndpointsTests {
             details[i] = new BaseClientDetails(inputs[i]);
             details[i].setResourceIds(Arrays.asList("none"));
             // refresh token is added automatically by endpoint validation
-            details[i].setAuthorizedGrantTypes(Arrays.asList("authorization_code", "refresh_token"));
+            details[i].setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE, "refresh_token"));
             details[i].setScope(Arrays.asList("uaa.none"));
             details[i].setAuthorities(AuthorityUtils.commaSeparatedStringToAuthorityList("uaa.none"));
         }
@@ -427,8 +428,6 @@ public class ClientAdminEndpointsTests {
             ClientDetails result = results[i];
             assertNull(result.getClientSecret());
         }
-        //TODO figure out how to verify all five invocations
-        //Mockito.verify(clientRegistrationService, times(inputs.length)).addClientDetails(details[0]);
     }
 
     @Test(expected = InvalidClientDetailsException.class)
@@ -959,14 +958,14 @@ public class ClientAdminEndpointsTests {
 
     @Test(expected = InvalidClientDetailsException.class)
     public void implicitAndAuthorizationCodeClientIsRejected() throws Exception {
-        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", "authorization_code"));
+        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", GRANT_TYPE_AUTHORIZATION_CODE));
         detail.setClientSecret("hello");
         endpoints.createClientDetails(detail);
     }
 
     @Test(expected = InvalidClientDetailsException.class)
     public void implicitAndAuthorizationCodeClientIsRejectedWithNullPassword() throws Exception {
-        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", "authorization_code"));
+        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", GRANT_TYPE_AUTHORIZATION_CODE));
         detail.setClientSecret(null);
         endpoints.createClientDetails(detail);
     }
@@ -979,14 +978,14 @@ public class ClientAdminEndpointsTests {
                 return true;
             }
         });
-        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", "authorization_code"));
+        detail.setAuthorizedGrantTypes(Arrays.asList("implicit", GRANT_TYPE_AUTHORIZATION_CODE));
         detail.setClientSecret("hello");
         endpoints.createClientDetails(detail);
     }
 
     @Test(expected = InvalidClientDetailsException.class)
     public void nonImplicitClientWithEmptySecretIsRejected() throws Exception {
-        detail.setAuthorizedGrantTypes(Arrays.asList("authorization_code"));
+        detail.setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE));
         detail.setClientSecret("");
         endpoints.createClientDetails(detail);
     }
@@ -994,7 +993,7 @@ public class ClientAdminEndpointsTests {
     @Test
     public void updateNonImplicitClientWithEmptySecretIsOk() throws Exception {
         Mockito.when(securityContextAccessor.isAdmin()).thenReturn(true);
-        detail.setAuthorizedGrantTypes(Arrays.asList("authorization_code"));
+        detail.setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE));
         detail.setClientSecret(null);
         endpoints.updateClientDetails(detail, detail.getClientId());
     }
@@ -1002,7 +1001,7 @@ public class ClientAdminEndpointsTests {
     @Test(expected = InvalidClientDetailsException.class)
     public void updateNonImplicitClientAndMakeItImplicit() throws Exception {
         assertFalse(detail.getAuthorizedGrantTypes().contains("implicit"));
-        detail.setAuthorizedGrantTypes(Arrays.asList("authorization_code", "implicit"));
+        detail.setAuthorizedGrantTypes(Arrays.asList(GRANT_TYPE_AUTHORIZATION_CODE, "implicit"));
         detail.setClientSecret(null);
         endpoints.updateClientDetails(detail, detail.getClientId());
     }

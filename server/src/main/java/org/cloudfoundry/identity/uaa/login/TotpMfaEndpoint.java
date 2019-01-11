@@ -15,10 +15,12 @@
 
 package org.cloudfoundry.identity.uaa.login;
 
+import org.cloudfoundry.identity.uaa.authentication.AuthenticationPolicyRejectionException;
 import org.cloudfoundry.identity.uaa.authentication.UaaAuthentication;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
 import org.cloudfoundry.identity.uaa.authentication.event.MfaAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.event.MfaAuthenticationSuccessEvent;
+import org.cloudfoundry.identity.uaa.authentication.manager.CommonLoginPolicy;
 import org.cloudfoundry.identity.uaa.mfa.MfaProvider;
 import org.cloudfoundry.identity.uaa.mfa.MfaProviderProvisioning;
 import org.cloudfoundry.identity.uaa.mfa.UserGoogleMfaCredentials;
@@ -68,6 +70,7 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
     private String mfaCompleteUrl = "/login/mfa/completed";
     private ApplicationEventPublisher eventPublisher;
     private UaaUserDatabase userDatabase;
+    private CommonLoginPolicy mfaPolicy;
 
     @ModelAttribute("uaaMfaCredentials")
     public UserGoogleMfaCredentials getUaaMfaCredentials() throws UaaPrincipalIsNotInSession {
@@ -87,7 +90,7 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
     @RequestMapping(value = {"/register"}, method = RequestMethod.GET)
     public String generateQrUrl(Model model,
                                 @ModelAttribute("uaaMfaCredentials") UserGoogleMfaCredentials credentials)
-        throws NoSuchAlgorithmException, WriterException, IOException, UaaPrincipalIsNotInSession {
+      throws NoSuchAlgorithmException, WriterException, IOException, UaaPrincipalIsNotInSession {
         UaaPrincipal uaaPrincipal = getSessionAuthPrincipal();
         MfaProvider provider = getMfaProvider();
         if (mfaCredentialsProvisioning.activeUserCredentialExists(uaaPrincipal.getId(), provider.getId())) {
@@ -102,8 +105,8 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
 
     @RequestMapping(value = {"/manual"}, method = RequestMethod.GET)
     public String manualRegistration(
-        Model model,
-        @ModelAttribute("uaaMfaCredentials") UserGoogleMfaCredentials credentials
+      Model model,
+      @ModelAttribute("uaaMfaCredentials") UserGoogleMfaCredentials credentials
     ) throws UaaPrincipalIsNotInSession {
         UaaPrincipal uaaPrincipal = getSessionAuthPrincipal();
         MfaProvider provider = getMfaProvider();
@@ -132,9 +135,14 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
                                      @RequestParam("code") String code,
                                      @ModelAttribute("uaaMfaCredentials") UserGoogleMfaCredentials credentials,
                                      SessionStatus sessionStatus)
-        throws UaaPrincipalIsNotInSession {
+      throws UaaPrincipalIsNotInSession {
         UaaAuthentication uaaAuth = getUaaAuthentication();
         UaaPrincipal uaaPrincipal = getSessionAuthPrincipal();
+
+        if (!this.mfaPolicy.isAllowed(uaaPrincipal.getId()).isAllowed()) {
+            throw new AuthenticationPolicyRejectionException("Your account has been locked because of too many failed attempts to login.");
+        }
+
         try {
             Integer codeValue = Integer.valueOf(code);
             if (mfaCredentialsProvisioning.isValidCode(credentials, codeValue)) {
@@ -170,6 +178,13 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
     @ExceptionHandler(UaaPrincipalIsNotInSession.class)
     public ModelAndView handleUaaPrincipalIsNotInSession() {
         return new ModelAndView("redirect:/login", Collections.emptyMap());
+    }
+
+    @ExceptionHandler(AuthenticationPolicyRejectionException.class)
+    public ModelAndView handleMFALockedOut() {
+        SecurityContextHolder.getContext().setAuthentication(null);
+
+        return new ModelAndView("redirect:/login?error=account_locked", Collections.emptyMap());
     }
 
     private ModelAndView renderEnterCodePage(Model model, UaaPrincipal uaaPrincipal) {
@@ -223,6 +238,10 @@ public class TotpMfaEndpoint implements ApplicationEventPublisherAware {
         } catch (UsernameNotFoundException e) {
         }
         return null;
+    }
+
+    public void setMfaPolicy(CommonLoginPolicy mfaPolicy) {
+        this.mfaPolicy = mfaPolicy;
     }
 
     public class UaaPrincipalIsNotInSession extends Exception {

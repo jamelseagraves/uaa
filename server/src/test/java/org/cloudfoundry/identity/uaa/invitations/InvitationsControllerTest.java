@@ -1,6 +1,11 @@
 package org.cloudfoundry.identity.uaa.invitations;
 
+import io.honeycomb.libhoney.EventFactory;
+import io.honeycomb.libhoney.HoneyClient;
+import io.honeycomb.libhoney.LibHoney;
 import org.cloudfoundry.identity.uaa.authentication.UaaPrincipal;
+import org.cloudfoundry.identity.uaa.authentication.event.IdentityProviderAuthenticationFailureEvent;
+import org.cloudfoundry.identity.uaa.authentication.event.MfaAuthenticationFailureEvent;
 import org.cloudfoundry.identity.uaa.authentication.manager.DynamicLdapAuthenticationManager;
 import org.cloudfoundry.identity.uaa.authentication.manager.DynamicZoneAwareAuthenticationManager;
 import org.cloudfoundry.identity.uaa.codestore.ExpiringCode;
@@ -18,6 +23,7 @@ import org.cloudfoundry.identity.uaa.scim.ScimUserProvisioning;
 import org.cloudfoundry.identity.uaa.scim.exception.InvalidPasswordException;
 import org.cloudfoundry.identity.uaa.scim.validate.PasswordValidator;
 import org.cloudfoundry.identity.uaa.security.web.CookieBasedCsrfTokenRepository;
+import org.cloudfoundry.identity.uaa.test.HoneycombAuditEventTestListener;
 import org.cloudfoundry.identity.uaa.user.UaaAuthority;
 import org.cloudfoundry.identity.uaa.user.UaaUser;
 import org.cloudfoundry.identity.uaa.user.UaaUserDatabase;
@@ -32,6 +38,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -40,6 +48,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.authentication.event.AuthenticationFailureLockedEvent;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.provider.ClientDetailsService;
@@ -57,7 +66,9 @@ import org.springframework.web.servlet.config.annotation.DefaultServletHandlerCo
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 
+import java.net.InetAddress;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -72,9 +83,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -149,7 +159,7 @@ public class InvitationsControllerTest {
         codeData.put("client_id", "client-id");
         codeData.put("redirect_uri", "blah.test.com");
         when(expiringCodeStore.retrieveCode("code", IdentityZoneHolder.get().getId())).thenReturn(createCode(codeData), null);
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
         IdentityProvider provider = new IdentityProvider();
         provider.setType(OriginKeys.UAA);
         when(providerProvisioning.retrieveByOrigin(any(), any())).thenReturn(provider);
@@ -192,7 +202,7 @@ public class InvitationsControllerTest {
     public void acceptInvitePage_for_unverifiedSamlUser() throws Exception {
         Map<String,String> codeData = getInvitationsCode("test-saml");
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(createCode(codeData));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
         IdentityProvider provider = new IdentityProvider();
         SamlIdentityProviderDefinition definition = new SamlIdentityProviderDefinition()
             .setMetaDataLocation("http://test.saml.com")
@@ -219,7 +229,7 @@ public class InvitationsControllerTest {
     public void acceptInvitePage_for_unverifiedOIDCUser() throws Exception {
         Map<String,String> codeData = getInvitationsCode("test-oidc");
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(createCode(codeData));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
 
         OIDCIdentityProviderDefinition definition = new OIDCIdentityProviderDefinition();
         definition.setAuthUrl(new URL("https://oidc10.auth.url"));
@@ -244,7 +254,7 @@ public class InvitationsControllerTest {
     public void acceptInvitePage_for_unverifiedLdapUser() throws Exception {
         Map<String, String> codeData = getInvitationsCode(LDAP);
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(createCode(codeData));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
 
         IdentityProvider provider = new IdentityProvider();
         provider.setType(LDAP);
@@ -277,16 +287,16 @@ public class InvitationsControllerTest {
     public void unverifiedLdapUser_acceptsInvite_byLoggingIn() throws Exception {
         Map<String, String> codeData = getInvitationsCode(LDAP);
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
         DynamicLdapAuthenticationManager ldapAuthenticationManager = mock(DynamicLdapAuthenticationManager.class);
-        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(anyObject(), anyObject())).thenReturn(ldapAuthenticationManager);
+        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(any(), any())).thenReturn(ldapAuthenticationManager);
 
         AuthenticationManager ldapActual = mock(AuthenticationManager.class);
         when(ldapAuthenticationManager.getLdapManagerActual()).thenReturn(ldapActual);
 
         Authentication auth = mock(Authentication.class);
         when(auth.isAuthenticated()).thenReturn(true);
-        when(ldapActual.authenticate(anyObject())).thenReturn(auth);
+        when(ldapActual.authenticate(any())).thenReturn(auth);
 
         ExtendedLdapUserDetails extendedLdapUserDetails = mock(ExtendedLdapUserDetails.class);
 
@@ -299,7 +309,7 @@ public class InvitationsControllerTest {
 
         when(scimUserProvisioning.retrieve("user-id-001", IdentityZoneHolder.get().getId())).thenReturn(invitedUser);
         when(invitationsService.acceptInvitation(anyString(), anyString())).thenReturn(new InvitationsService.AcceptedInvitation("blah.test.com", new ScimUser()));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
 
         mockMvc.perform(post("/invitations/accept_enterprise.do")
                 .param("enterprise_username", "test-ldap-user")
@@ -309,29 +319,29 @@ public class InvitationsControllerTest {
                 .andExpect(redirectedUrl("/login?success=invite_accepted&form_redirect_uri=blah.test.com"))
                 .andReturn();
 
-        verify(ldapActual).authenticate(anyObject());
+        verify(ldapActual).authenticate(any());
         ArgumentCaptor<ScimUser> userArgumentCaptor = ArgumentCaptor.forClass(ScimUser.class);
         verify(scimUserProvisioning).update(anyString(), userArgumentCaptor.capture(), eq(IdentityZoneHolder.get().getId()));
         ScimUser value = userArgumentCaptor.getValue();
         assertEquals("test-ldap-user", value.getUserName());
         assertEquals("user@example.com", value.getPrimaryEmail());
-        verify(ldapAuthenticationManager).authenticate(anyObject());
+        verify(ldapAuthenticationManager).authenticate(any());
     }
 
     @Test
     public void unverifiedLdapUser_acceptsInvite_byLoggingIn_bad_credentials() throws Exception {
         Map<String, String> codeData = getInvitationsCode("ldap");
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
         DynamicLdapAuthenticationManager ldapAuthenticationManager = mock(DynamicLdapAuthenticationManager.class);
-        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(anyObject(), anyObject())).thenReturn(ldapAuthenticationManager);
+        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(any(), any())).thenReturn(ldapAuthenticationManager);
 
         AuthenticationManager ldapActual = mock(AuthenticationManager.class);
         when(ldapAuthenticationManager.getLdapManagerActual()).thenReturn(ldapActual);
 
         Authentication auth = mock(Authentication.class);
         when(auth.isAuthenticated()).thenReturn(true);
-        when(ldapActual.authenticate(anyObject())).thenThrow(new BadCredentialsException("bad creds"));
+        when(ldapActual.authenticate(any())).thenThrow(new BadCredentialsException("bad creds"));
 
         mockMvc.perform(post("/invitations/accept_enterprise.do")
           .param("enterprise_username", "test-ldap-user")
@@ -349,12 +359,12 @@ public class InvitationsControllerTest {
         Map<String, String> codeData = getInvitationsCode(LDAP);
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
         DynamicLdapAuthenticationManager ldapAuthenticationManager = mock(DynamicLdapAuthenticationManager.class);
-        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(anyObject(), anyObject())).thenReturn(ldapAuthenticationManager);
+        when(zoneAwareAuthenticationManager.getLdapAuthenticationManager(any(), any())).thenReturn(ldapAuthenticationManager);
 
         AuthenticationManager ldapActual = mock(AuthenticationManager.class);
         when(ldapAuthenticationManager.getLdapManagerActual()).thenReturn(ldapActual);
         Authentication auth = mock(Authentication.class);
-        when(ldapActual.authenticate(anyObject())).thenReturn(auth);
+        when(ldapActual.authenticate(any())).thenReturn(auth);
 
         ExtendedLdapUserDetails extendedLdapUserDetails = mock(ExtendedLdapUserDetails.class);
         when(auth.getPrincipal()).thenReturn(extendedLdapUserDetails);
@@ -363,7 +373,7 @@ public class InvitationsControllerTest {
         ScimUser invitedUser = new ScimUser("user-id-001", "user@example.com", "g", "f");
         invitedUser.setPrimaryEmail("user@example.com");
         when(scimUserProvisioning.retrieve("user-id-001", IdentityZoneHolder.get().getId())).thenReturn(invitedUser);
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), null));
 
         mockMvc.perform(post("/invitations/accept_enterprise.do")
                 .param("enterprise_username", "test-ldap-user")
@@ -379,7 +389,7 @@ public class InvitationsControllerTest {
                 .andExpect(model().attribute("error_message", "invite.email_mismatch"))
                 .andReturn();
 
-        verify(ldapActual).authenticate(anyObject());
+        verify(ldapActual).authenticate(any());
     }
 
     @Test
@@ -394,7 +404,7 @@ public class InvitationsControllerTest {
         codeData.put("origin", "some-origin");
 
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(createCode(codeData), null);
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(INVITATION.name()), eq(IdentityZoneHolder.get().getId()))).thenReturn(createCode(codeData));
         when(invitationsService.acceptInvitation(anyString(), eq(""))).thenReturn(new InvitationsService.AcceptedInvitation("blah.test.com", new ScimUser()));
         IdentityProvider provider = new IdentityProvider();
         provider.setType(OriginKeys.UAA);
@@ -421,7 +431,7 @@ public class InvitationsControllerTest {
         codeData.put("user_id", "verified-user");
         codeData.put("email", "user@example.com");
         when(expiringCodeStore.retrieveCode("the_secret_code", IdentityZoneHolder.get().getId())).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), "incorrect-code-intent"));
-        when(expiringCodeStore.generateCode(anyString(), anyObject(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), "incorrect-code-intent"));
+        when(expiringCodeStore.generateCode(anyString(), any(), eq(null), eq(IdentityZoneHolder.get().getId()))).thenReturn(new ExpiringCode("code", new Timestamp(System.currentTimeMillis()), JsonUtils.writeValueAsString(codeData), "incorrect-code-intent"));
         doThrow(new HttpClientErrorException(BAD_REQUEST)).when(invitationsService).acceptInvitation(eq("incorrect-code-intent"), eq(""));
 
         MockHttpServletRequestBuilder get = get("/invitations/accept")
@@ -457,7 +467,7 @@ public class InvitationsControllerTest {
             .andExpect(model().attribute("error_message_code", "code_expired"))
             .andExpect(view().name("invitations/accept_invite"));
         verify(expiringCodeStore).retrieveCode("thecode", IdentityZoneHolder.get().getId());
-        verify(expiringCodeStore, never()).generateCode(anyString(), anyObject(), anyString(), eq(IdentityZoneHolder.get().getId()));
+        verify(expiringCodeStore, never()).generateCode(anyString(), any(), anyString(), eq(IdentityZoneHolder.get().getId()));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
 
     }
@@ -479,7 +489,7 @@ public class InvitationsControllerTest {
             .andExpect(model().attribute("error_message_code", "code_expired"))
             .andExpect(view().name("invitations/accept_invite"));
         verify(expiringCodeStore).retrieveCode("thecode", IdentityZoneHolder.get().getId());
-        verify(expiringCodeStore, never()).generateCode(anyString(), anyObject(), anyString(), eq(IdentityZoneHolder.get().getId()));
+        verify(expiringCodeStore, never()).generateCode(anyString(), any(), anyString(), eq(IdentityZoneHolder.get().getId()));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
 
     }
@@ -507,7 +517,7 @@ public class InvitationsControllerTest {
             .andExpect(model().attribute("code", "thenewcode2"))
             .andExpect(view().name("redirect:accept"));
         verify(expiringCodeStore).retrieveCode("thecode", IdentityZoneHolder.get().getId());
-        verify(expiringCodeStore, times(2)).generateCode(anyString(), anyObject(), anyString(), eq(IdentityZoneHolder.get().getId()));
+        verify(expiringCodeStore, times(2)).generateCode(anyString(), any(), anyString(), eq(IdentityZoneHolder.get().getId()));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
     }
 
@@ -568,7 +578,6 @@ public class InvitationsControllerTest {
             .param("password_confirmation", "password")
             .param("code", "thecode");
 
-        //TODO verify redirect to login page with success call and redirect as queryparam or sessionparam?
         mockMvc.perform(post)
             .andExpect(status().isFound())
             .andExpect(redirectedUrl("/login?success=invite_accepted&form_redirect_uri=valid.redirect.com"));
@@ -595,7 +604,6 @@ public class InvitationsControllerTest {
             .param("password", "password")
             .param("password_confirmation", "password");
 
-        //TODO verify return login page with redirect attribute to home
         mockMvc.perform(post)
             .andExpect(status().isFound())
             .andExpect(redirectedUrl("/login?success=invite_accepted"));
@@ -648,7 +656,7 @@ public class InvitationsControllerTest {
             .andExpect(model().attribute("code", "thenewcode2"))
             .andExpect(view().name("redirect:accept"));
         verify(expiringCodeStore).retrieveCode("thecode", IdentityZoneHolder.get().getId());
-        verify(expiringCodeStore, times(2)).generateCode(anyString(), anyObject(), anyString(), eq(IdentityZoneHolder.get().getId()));
+        verify(expiringCodeStore, times(2)).generateCode(anyString(), any(), anyString(), eq(IdentityZoneHolder.get().getId()));
         verify(invitationsService, never()).acceptInvitation(anyString(), anyString());
     }
 
@@ -852,5 +860,71 @@ public class InvitationsControllerTest {
             return mock(CookieBasedCsrfTokenRepository.class);
         }
 
+        @Bean
+        public EventFactory honeycombEventFactory(@Value("#{T(System).getenv('HONEYCOMB_KEY')}") String honeycombKey,
+                                                  @Value("#{T(System).getenv('HONEYCOMB_DATASET')}") String dataset,
+                                                  @Value("${testId:-1}") String testId) {
+            HoneyClient honeyClient = LibHoney.create(
+                    LibHoney.options()
+                            .setWriteKey(honeycombKey)
+                            .setDataset(dataset)
+                            .build()
+            );
+
+            if (honeycombKey == null || dataset == null) {
+                return honeyClient.buildEventFactory().build();
+            }
+
+            String hostName = "";
+            try {
+                hostName = InetAddress.getLocalHost().getHostName();
+
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+            }
+
+            EventFactory.Builder builder = honeyClient.buildEventFactory()
+                    .addField("junit", "4")
+                    .addField("testId", testId)
+                    .addField("cpuCores", Runtime.getRuntime().availableProcessors())
+                    .addField("hostname", hostName);
+
+            for (Map.Entry entry : System.getProperties().entrySet()) {
+                builder.addField(entry.getKey().toString(), entry.getValue());
+            }
+
+            builder.addField("DB", System.getenv().get("DB"));
+            builder.addField("SPRING_PROFILE", System.getenv().get("SPRING_PROFILE"));
+            builder.addField("JAVA_HOME", System.getenv().get("JAVA_HOME"));
+
+            return builder.build();
+        }
+
+        @Bean
+        public HoneycombAuditEventTestListener honeycombAuditEventTestListenerAuthenticationFailureLockedEvent(ConfigurableApplicationContext configurableApplicationContext, EventFactory honeycombEventFactory) {
+            HoneycombAuditEventTestListener<AuthenticationFailureLockedEvent> listener =
+                    HoneycombAuditEventTestListener.forEventClass(AuthenticationFailureLockedEvent.class);
+            listener.setHoneycombEventFactory(honeycombEventFactory);
+            configurableApplicationContext.addApplicationListener(listener);
+            return listener;
+        }
+
+        @Bean
+        public HoneycombAuditEventTestListener honeycombAuditEventTestListenerIdentityProviderAuthenticationFailureEvent(ConfigurableApplicationContext configurableApplicationContext,EventFactory honeycombEventFactory) {
+            HoneycombAuditEventTestListener<IdentityProviderAuthenticationFailureEvent> listener =
+                    HoneycombAuditEventTestListener.forEventClass(IdentityProviderAuthenticationFailureEvent.class);
+            listener.setHoneycombEventFactory(honeycombEventFactory);
+            configurableApplicationContext.addApplicationListener(listener);
+            return listener;
+        }
+
+        @Bean
+        public HoneycombAuditEventTestListener honeycombAuditEventTestListenerMfaAuthenticationFailureEvent(ConfigurableApplicationContext configurableApplicationContext, EventFactory honeycombEventFactory) {
+            HoneycombAuditEventTestListener<MfaAuthenticationFailureEvent> listener =
+                    HoneycombAuditEventTestListener.forEventClass(MfaAuthenticationFailureEvent.class);
+            listener.setHoneycombEventFactory(honeycombEventFactory);
+            configurableApplicationContext.addApplicationListener(listener);
+            return listener;
+        }
     }
 }

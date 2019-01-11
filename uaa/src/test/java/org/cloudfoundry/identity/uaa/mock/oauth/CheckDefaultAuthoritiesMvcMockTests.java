@@ -12,15 +12,32 @@
  *******************************************************************************/
 package org.cloudfoundry.identity.uaa.mock.oauth;
 
-import org.cloudfoundry.identity.uaa.mock.InjectedMockContextTest;
+import org.cloudfoundry.identity.uaa.TestSpringContext;
+import org.cloudfoundry.identity.uaa.test.HoneycombAuditEventTestListenerExtension;
+import org.cloudfoundry.identity.uaa.test.HoneycombJdbcInterceptorExtension;
 import org.cloudfoundry.identity.uaa.zone.ClientServicesExtension;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.web.WebAppConfiguration;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.util.Set;
-
-public class CheckDefaultAuthoritiesMvcMockTests extends InjectedMockContextTest {
+@ExtendWith(SpringExtension.class)
+@ExtendWith(HoneycombJdbcInterceptorExtension.class)
+@ExtendWith(HoneycombAuditEventTestListenerExtension.class)
+@ActiveProfiles("default")
+@WebAppConfiguration
+@ContextConfiguration(classes = TestSpringContext.class)
+public class CheckDefaultAuthoritiesMvcMockTests {
+    @Autowired
+    public WebApplicationContext webApplicationContext;
 
     ClientServicesExtension clientRegistrationService;
     private Set<String> defaultAuthorities;
@@ -41,11 +58,11 @@ public class CheckDefaultAuthoritiesMvcMockTests extends InjectedMockContextTest
         "uaa.offline_token"
     };
 
-    @Before
+    @BeforeEach
     public void setUp() throws Exception {
-        clientRegistrationService = getWebApplicationContext().getBean(ClientServicesExtension.class);
+        clientRegistrationService = webApplicationContext.getBean(ClientServicesExtension.class);
 
-        defaultAuthorities = (Set<String>) getWebApplicationContext().getBean("defaultUserAuthorities");
+        defaultAuthorities = (Set<String>) webApplicationContext.getBean("defaultUserAuthorities");
     }
 
     @Test

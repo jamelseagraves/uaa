@@ -33,7 +33,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.web.util.HtmlUtils;
 
-import static org.cloudfoundry.identity.uaa.oauth.TokenTestSupport.PASSWORD;
+import static org.cloudfoundry.identity.uaa.oauth.token.TokenConstants.GRANT_TYPE_PASSWORD;
 import static org.springframework.http.HttpHeaders.ACCEPT;
 import static org.springframework.http.HttpHeaders.CONTENT_TYPE;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
@@ -48,9 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 public class CheckTokenEndpointMockMvcTest extends AbstractTokenMockMvcTests {
-
-    public static final String CLIENTID = "oauth_showcase_password_grant";
-    public static final String CLIENTSECRET = "secret";
+    private final String CLIENT_ID = "oauth_showcase_password_grant";
+    private final String CLIENT_SECRET = "secret";
     private String token;
     private String idToken;
     private String basic;
@@ -62,12 +61,12 @@ public class CheckTokenEndpointMockMvcTest extends AbstractTokenMockMvcTests {
 
         String content = getMockMvc().perform(
             post("/oauth/token")
-                .param("client_id", CLIENTID)
-                .param("client_secret", CLIENTSECRET)
-                .param(OAuth2Utils.GRANT_TYPE, PASSWORD)
+                .param("client_id", CLIENT_ID)
+                .param("client_secret", CLIENT_SECRET)
+                .param(OAuth2Utils.GRANT_TYPE, GRANT_TYPE_PASSWORD)
                 .param("username", username)
                 .param("password", SECRET)
-                .param(TokenConstants.REQUEST_TOKEN_FORMAT, TokenConstants.OPAQUE)
+                .param(TokenConstants.REQUEST_TOKEN_FORMAT, TokenConstants.TokenFormat.OPAQUE.getStringValue())
                 .param("response_type", "id_token")
                 .accept(APPLICATION_JSON)
                 .contentType(APPLICATION_FORM_URLENCODED))
@@ -76,7 +75,7 @@ public class CheckTokenEndpointMockMvcTest extends AbstractTokenMockMvcTests {
         Map<String,Object> tokenMap = JsonUtils.readValue(content, new TypeReference<Map<String, Object>>() {});
         token = (String) tokenMap.get("access_token");
         idToken = (String) tokenMap.get("id_token");
-        basic = new String(Base64.encodeBase64((CLIENTID+":"+CLIENTSECRET).getBytes()));
+        basic = new String(Base64.encodeBase64((CLIENT_ID +":"+ CLIENT_SECRET).getBytes()));
         allowQueryString = getWebApplicationContext().getBean(CheckTokenEndpoint.class).isAllowQueryString();
         getWebApplicationContext().getBean(CheckTokenEndpoint.class).setAllowQueryString(false);
     }
