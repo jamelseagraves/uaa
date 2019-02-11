@@ -106,6 +106,8 @@ public class ScimUserJsonDeserializer extends JsonDeserializer<ScimUser> {
                     if(jp.getValueAsString() != null) {
                         user.setPreviousLogonTime(jp.getValueAsLong());
                     }
+                } else if ("metadata".equalsIgnoreCase(fieldName)) {
+                	user.setMetadata(jp.readValueAs(String.class));
                 } else {
                     throw new UnrecognizedPropertyException("unrecognized field", jp.getCurrentLocation(),
                                     ScimUser.class, fieldName, Collections.emptySet());

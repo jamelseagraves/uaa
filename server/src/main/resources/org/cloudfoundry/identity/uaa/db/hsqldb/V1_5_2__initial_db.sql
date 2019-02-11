@@ -25,7 +25,8 @@ CREATE TABLE users (
    familyname VARCHAR(255),
    active BOOLEAN DEFAULT TRUE NOT NULL,
    phonenumber VARCHAR(255),
-   verified BOOLEAN DEFAULT FALSE NOT NULL
+   verified BOOLEAN DEFAULT FALSE NOT NULL,
+   metadata VARCHAR(8912)
 ) ;
 
 CREATE UNIQUE INDEX unique_uk_1 ON users (username);

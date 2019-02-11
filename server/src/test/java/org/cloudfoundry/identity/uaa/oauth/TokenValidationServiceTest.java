@@ -66,7 +66,7 @@ public class TokenValidationServiceTest {
         revocableTokenProvisioning = mock(RevocableTokenProvisioning.class);
 
         when(clientServicesExtension.loadClientByClientId(clientId, IdentityZoneHolder.get().getId())).thenReturn(new BaseClientDetails(clientId, null, "foo.bar", null, null));
-        UaaUser user = new UaaUser(userId, "marrisa", "koala", "marissa@gmail.com", buildGrantedAuthorities("foo.bar"), "Marissa", "Bloggs", null, null, null, null, true, null, null, null);
+        UaaUser user = new UaaUser(userId, "marrisa", "koala", "marissa@gmail.com", buildGrantedAuthorities("foo.bar"), "Marissa", "Bloggs", null, null, null, null, true, null, null, null, "metadata");
         when(userDatabase.retrieveUserById(userId)).thenReturn(user);
 
         tokenValidationService = new TokenValidationService(

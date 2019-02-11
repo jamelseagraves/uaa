@@ -176,7 +176,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmail() throws Exception {
-        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null);
+        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();
@@ -196,7 +196,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmailWhenAuthenticated() throws Exception {
-        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null);
+        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();
@@ -223,7 +223,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmailWithRedirectUrl() throws Exception {
-        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null);
+        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();
@@ -244,7 +244,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmailWithRedirectWhenAuthenticated() throws Exception {
-        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null);
+        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();
@@ -298,7 +298,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmailWhenAutheticatedAsOtherUser() throws Exception {
-        UaaUser user = new UaaUser("user-id-002", "new2@example.com", "password", "new2@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-002", null);
+        UaaUser user = new UaaUser("user-id-002", "new2@example.com", "password", "new2@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-002", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();
@@ -325,7 +325,7 @@ public class ChangeEmailControllerTest extends TestClassNullifier {
 
     @Test
     public void testVerifyEmailDoesNotDeleteAuthenticationMethods() throws Exception {
-        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null);
+        UaaUser user = new UaaUser("user-id-001", "new@example.com", "password", "new@example.com", Collections.<GrantedAuthority>emptyList(), "name", "name", null, null, OriginKeys.UAA, null, true, IdentityZoneHolder.get().getId(),"user-id-001", null, "metadata");
         when(uaaUserDatabase.retrieveUserById(anyString())).thenReturn(user);
 
         Map<String,String> response = new HashMap<>();

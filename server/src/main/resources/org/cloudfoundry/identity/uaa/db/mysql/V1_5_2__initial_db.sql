@@ -23,7 +23,8 @@ CREATE TABLE users (
    givenName VARCHAR(255),
    familyName VARCHAR(255),
    active BOOLEAN default true not null,
-   phoneNumber VARCHAR(255)
+   phoneNumber VARCHAR(255),
+   metadata VARCHAR(8912)
 ) ;
 
 -- add column with null allowed for existing users
