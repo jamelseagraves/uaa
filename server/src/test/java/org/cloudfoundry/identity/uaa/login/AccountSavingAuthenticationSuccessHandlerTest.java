@@ -95,7 +95,8 @@ public class AccountSavingAuthenticationSuccessHandlerTest {
                 true,
                 IdentityZone.getUaa().getId(),
                 "salt",
-                yesterday
+                yesterday,
+                "metadata"
         );
 
         UaaPrincipal principal = new UaaPrincipal(user);
@@ -153,7 +154,8 @@ public class AccountSavingAuthenticationSuccessHandlerTest {
                 true,
                 IdentityZone.getUaa().getId(),
                 "salt",
-                yesterday
+                yesterday,
+                "metadata"
         );
 
         UaaPrincipal principal = new UaaPrincipal(user);

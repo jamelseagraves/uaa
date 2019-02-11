@@ -170,7 +170,8 @@ public class AuthzAuthenticationManagerTests {
             true,
             IdentityZoneHolder.get().getId(),
             user.getSalt(),
-            oneYearAgo);
+            oneYearAgo,
+            user.getMetadata());
         when(db.retrieveUserByName("auser", OriginKeys.UAA)).thenReturn(user);
         Authentication authentication = mgr.authenticate(createAuthRequest("auser", "password"));
         assertTrue(((UaaAuthentication)authentication).isRequiresPasswordChange());

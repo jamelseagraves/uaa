@@ -97,7 +97,8 @@ public class SessionResetFilterTests {
             true,
             IdentityZone.getUaa().getId(),
             "salt",
-            yesterday
+            yesterday,
+            "metadata"
         );
 
         userWithNoPasswordModification = new UaaUser(
@@ -115,7 +116,8 @@ public class SessionResetFilterTests {
             true,
             IdentityZone.getUaa().getId(),
             "salt",
-            null
+            null,
+            "metadata"
         );
 
         List<UaaUser> users = new ArrayList<>();

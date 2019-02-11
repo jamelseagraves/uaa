@@ -37,6 +37,7 @@ UPDATE USERS set authorities='uaa.user' where authority=0 and authorities not li
 UPDATE USERS set authorities='uaa.admin,uaa.user' where authority=1 and authorities not like '%.%';
 ALTER TABLE USERS ALTER COLUMN givenName drop not NULL;
 ALTER TABLE USERS ALTER COLUMN familyName drop not NULL;
+ALTER TABLE USERS ADD COLUMN metadata VARCHAR(8192);
 
 -- add column with null allowed for existing users
 ALTER TABLE USERS ADD COLUMN VERIFIED BOOLEAN;

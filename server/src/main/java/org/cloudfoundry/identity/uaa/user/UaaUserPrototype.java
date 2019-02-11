@@ -58,6 +58,8 @@ public final class UaaUserPrototype {
     private Long lastLogonTime;
 
     private Long previousLogonTime;
+    
+    private String metadata;
 
     public UaaUserPrototype() {
     }
@@ -82,8 +84,8 @@ public final class UaaUserPrototype {
             .withSalt(user.getSalt())
             .withCreated(user.getCreated())
             .withModified(user.getModified())
-            .withPasswordChangeRequired(user.isPasswordChangeRequired());
-
+            .withPasswordChangeRequired(user.isPasswordChangeRequired())
+            .withMetadata(user.getMetadata());
     }
 
     public String getId() {
@@ -263,5 +265,14 @@ public final class UaaUserPrototype {
 
     public Long getPreviousLogonTime() {
         return previousLogonTime;
+    }
+    
+    public String getMetadata() {
+    	return metadata;
+    }
+    
+    public UaaUserPrototype withMetadata(String metadata) {
+    	this.metadata = metadata;
+    	return this;
     }
 }

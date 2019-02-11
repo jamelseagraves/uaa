@@ -29,6 +29,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.validation.constraints.Size;
+
 import static java.util.Optional.ofNullable;
 import static org.springframework.util.StringUtils.hasText;
 
@@ -344,6 +346,9 @@ public class ScimUser extends ScimCore<ScimUser> {
 
     @JsonProperty
     private String password;
+    
+    @Size(max=8192)
+    private String metadata;
 
     public ScimUser() {
     }
@@ -565,6 +570,14 @@ public class ScimUser extends ScimCore<ScimUser> {
         this.previousLogonTime = previousLogonTime;
         return this;
     }
+    
+    public String getMetadata() {
+    	return metadata;
+    }
+    
+    public void setMetadata(String metadata) {
+    	this.metadata = metadata;
+    }
 
     @JsonIgnore
     public String getPrimaryEmail() {
@@ -762,6 +775,9 @@ public class ScimUser extends ScimCore<ScimUser> {
                 case "NAME.MIDDLENAME":
                     ofNullable(getName()).ifPresent(name -> name.setMiddleName(null));
                     break;
+                case "METADATA":
+                	setMetadata(null);
+                	break;
                 default:
                     throw new IllegalArgumentException(String.format("Attribute %s cannot be removed using \"Meta.attributes\"", attribute));
             }
@@ -795,6 +811,7 @@ public class ScimUser extends ScimCore<ScimUser> {
         ofNullable(patch.getProfileUrl()).ifPresent(s -> setProfileUrl(s));
         ofNullable(patch.getLocale()).ifPresent(s -> setLocale(s));
         ofNullable(patch.getPreferredLanguage()).ifPresent(s -> setPreferredLanguage(s));
+        ofNullable(patch.getMetadata()).ifPresent(s -> setMetadata(s));
 
         //Only one email stored, use Primary or first.
         if (patch.getEmails() != null && patch.getEmails().size()>0) {

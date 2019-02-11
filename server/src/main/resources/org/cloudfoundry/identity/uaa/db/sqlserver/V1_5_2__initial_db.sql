@@ -24,7 +24,8 @@ CREATE TABLE users (
    active BIT DEFAULT 1 not null,
    phonenumber NVARCHAR(255),
    authorities NVARCHAR(1024) DEFAULT 'uaa.user',
-   verified BIT DEFAULT 0 NOT NULL
+   verified BIT DEFAULT 0 NOT NULL,
+   metadata VARCHAR(8912)
 );
 
 CREATE UNIQUE INDEX unique_uk_1 on users (username);

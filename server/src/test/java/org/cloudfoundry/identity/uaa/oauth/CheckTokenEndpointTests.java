@@ -205,7 +205,8 @@ public class CheckTokenEndpointTests {
             false,
             IdentityZoneHolder.get().getId(),
             "salt",
-            new Date(nowMillis - 2000));
+            new Date(nowMillis - 2000),
+            "metadata");
         authorizationRequest = new AuthorizationRequest("client", Collections.singleton("read"));
         authorizationRequest.setResourceIds(new HashSet<>(Arrays.asList("client", "scim")));
         Map<String, String> requestParameters = new HashMap<>();
@@ -351,7 +352,8 @@ public class CheckTokenEndpointTests {
             false,
             IdentityZoneHolder.get().getId(),
             "changedsalt",
-            new Date(nowMillis - 2000));
+            new Date(nowMillis - 2000),
+            "metadata");
         resetAndMockUserDatabase(userId, user);
         endpoint.checkToken(accessToken.getValue(), Collections.emptyList(), request);
     }
@@ -374,7 +376,8 @@ public class CheckTokenEndpointTests {
             false,
             IdentityZoneHolder.get().getId(),
             "salt",
-            new Date(nowMillis - 2000));
+            new Date(nowMillis - 2000),
+            "metadata");
         resetAndMockUserDatabase(userId, user);
         endpoint.checkToken(accessToken.getValue(), Collections.emptyList(), request);
     }
@@ -397,7 +400,8 @@ public class CheckTokenEndpointTests {
             false,
             IdentityZoneHolder.get().getId(),
             "salt",
-            new Date(nowMillis - 2000));
+            new Date(nowMillis - 2000),
+            "metadata");
         resetAndMockUserDatabase(userId, user);
         endpoint.checkToken(accessToken.getValue(), Collections.emptyList(), request);
     }
@@ -421,7 +425,8 @@ public class CheckTokenEndpointTests {
             false,
             IdentityZoneHolder.get().getId(),
             "salt",
-            new Date(nowMillis - 2000));
+            new Date(nowMillis - 2000),
+            "metadata");
 
         resetAndMockUserDatabase(userId, user);
         endpoint.checkToken(accessToken.getValue(), Collections.emptyList(), request);
