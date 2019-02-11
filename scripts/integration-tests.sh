@@ -3,7 +3,6 @@ set -xeu
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source $DIR/start_db_helper.sh
-source $DIR/start_ldap_helper.sh
 
 TESTENV="$1"
 
@@ -20,7 +19,6 @@ EOF
 bootDB "${DB}"
 
 pushd $(dirname $DIR)
-  install_ldap_certs
   /etc/init.d/slapd start
   ldapadd -Y EXTERNAL -H ldapi:/// -f ./uaa/src/main/resources/ldap_db_init.ldif
   ldapadd -x -D 'cn=admin,dc=test,dc=com' -w password -f ./uaa/src/main/resources/ldap_init.ldif
